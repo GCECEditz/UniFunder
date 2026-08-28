@@ -1,0 +1,6 @@
+{
+  "name": "UniFunder",
+  "description": "An Android app where university students and staff in Malaysia can automate raising funds for NGOs, cooperating to support societal causes (SDG 17).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
