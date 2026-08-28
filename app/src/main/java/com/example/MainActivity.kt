@@ -33,7 +33,7 @@ import com.example.ui.screens.QrCodeScreen
 import com.example.ui.theme.Malachite
 import com.example.ui.theme.MyApplicationTheme
 
-//There is a comment on line 36
+//There is a nice comment on line 36
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
