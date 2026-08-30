@@ -58,7 +58,6 @@ import com.example.Screen
 import com.example.Ngo
 import com.example.Proposal
 import com.example.Budget
-import com.example.ChatMessage
 import com.example.SocialDraft
 import com.example.MainViewModel
 import com.example.GeminiService

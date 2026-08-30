@@ -3,5 +3,7 @@ TODO: make it so that only one ask ai button shows up in the budget screen
 TODO: Implement database
 TODO: allow user to switch between light and dark mode
 TODO: change SF (the profile picture name of the user in ask AI Screen to whatever initials the student email uses
-TODO: implement ai
+TODO: implement ai to analyze sheets
 TODO: integrate budget screen with google sheets
+TODO: allow ai to save messages using database
+TODO: update sendername and initials depending on who the user is in mainviewmodel 298 and 299

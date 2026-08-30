@@ -44,9 +44,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ChatMessage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.MainViewModel
 import com.example.R
+import com.example.model.ChatMessage
 import com.example.ui.theme.LilacAsh
 import com.example.ui.theme.PineBlue
 import com.example.ui.theme.VintageGrape
@@ -56,7 +57,9 @@ fun AskAiScreen(
     vm: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    var chatText by remember { mutableStateOf("") }
+    val chatText by vm.aiChatText.collectAsStateWithLifecycle()
+    val aiChatMessages by vm.aiChatMessages.collectAsStateWithLifecycle()
+    val isAiLoading by vm.isAiLoading.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -91,10 +94,10 @@ fun AskAiScreen(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(vm.chatMessages) { msg ->
+            items(aiChatMessages) { msg ->
                 ChatBubble(msg = msg)
             }
-            if (vm.isAiLoading) {
+            if (isAiLoading) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -122,7 +125,7 @@ fun AskAiScreen(
             ) {
                 OutlinedTextField(
                     value = chatText,
-                    onValueChange = { chatText = it },
+                    onValueChange = vm::onChatTextChange,
                     placeholder = { Text(stringResource(R.string.ai_screen_prompt_examples), color = LilacAsh) },
                     shape = RoundedCornerShape(24.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -144,10 +147,7 @@ fun AskAiScreen(
                         .clip(CircleShape)
                         .background(PineBlue)
                         .clickable {
-                            if (chatText.isNotBlank()) {
-                                vm.sendChatMessage(chatText)
-                                chatText = ""
-                            }
+                            vm.sendChatMessage()
                         }
                         .testTag("ai_send_button")
                 ) {

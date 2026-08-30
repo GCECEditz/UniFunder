@@ -1,14 +1,21 @@
 package com.example
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.model.ChatMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
@@ -139,26 +146,31 @@ class MainViewModel : ViewModel() {
     val socialDrafts = mutableStateListOf<SocialDraft>()
 
     // Ask AI Chat State
-    val chatMessages = mutableStateListOf<ChatMessage>(
-        ChatMessage(
-            id = "msg_init_user",
-            text = "HOW CAN I OPTIMIZE THIS PROJECT PROPOSAL?",
-            isUser = true,
-            senderName = "STEPHANIE FRANKLIN",
-            initials = "SF",
-            timestamp = "01:39"
-        ),
-        ChatMessage(
-            id = "msg_init_ai",
-            text = "CONSIDER QUANTIFYING YOUR IMPACT BY INCLUDING THE NUMBER OF FAMILIES ASSISTED.",
-            isUser = false,
-            senderName = "UniFunder AI",
-            initials = "AI",
-            timestamp = "01:40"
-        )
+
+    private val _isAiLoading = MutableStateFlow(false)
+    private val _chatText = MutableStateFlow<String>("")
+    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList()
+//        ChatMessage(
+//            id = "msg_init_user",
+//            text = "HOW CAN I OPTIMIZE THIS PROJECT PROPOSAL?",
+//            isUser = true,
+//            senderName = "STEPHANIE FRANKLIN",
+//            initials = "SF",
+//            timestamp = "01:39"
+//        ),
+//        ChatMessage(
+//            id = "msg_init_ai",
+//            text = "CONSIDER QUANTIFYING YOUR IMPACT BY INCLUDING THE NUMBER OF FAMILIES ASSISTED.",
+//            isUser = false,
+//            senderName = "UniFunder AI",
+//            initials = "AI",
+//            timestamp = "01:40"
+//        )
     )
 
-    var isAiLoading by mutableStateOf(false)
+    val aiChatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
+    val aiChatText: StateFlow<String> = _chatText.asStateFlow()
+    val isAiLoading = _isAiLoading.asStateFlow()
 
     // Proposal Custom Form
     var proposalTitleInput by mutableStateOf("")
@@ -167,6 +179,8 @@ class MainViewModel : ViewModel() {
     var activeEditingProposal by mutableStateOf<Proposal?>(null)
 
     // --- Actions ---
+
+    fun onChatTextChange(value: String) { _chatText.value = value }
 
     fun login() {
         if (email.isNotEmpty() && password.isNotEmpty()) {
@@ -281,35 +295,42 @@ class MainViewModel : ViewModel() {
     }
 
     // AI Chat Operations
-    fun sendChatMessage(text: String) {
-        if (text.isBlank()) return
-        
+    fun sendChatMessage() {
+        if (_chatText.value.isBlank()) return
+        val promptText = _chatText.value.trim()
+
         val userMsg = ChatMessage(
             id = "msg_${UUID.randomUUID()}",
-            text = text,
+            text = promptText,
             isUser = true,
             senderName = "STEPHANIE FRANKLIN",
             initials = "SF",
-            timestamp = "01:42"
+            timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM-dd HH:mm"))
         )
-        chatMessages.add(userMsg)
-        
-        isAiLoading = true
-        
-        viewModelScope.launch {
-            val aiResponse = GeminiService.getResponse(text)
-            
-            val aiMsg = ChatMessage(
-                id = "msg_${UUID.randomUUID()}",
-                text = aiResponse,
-                isUser = false,
-                senderName = "UniFunder AI",
-                initials = "AI",
-                timestamp = "01:42"
-            )
-            chatMessages.add(aiMsg)
-            isAiLoading = false
+        _chatMessages.update { chat_msgs -> chat_msgs + userMsg }
+        _chatText.value = ""
+        _isAiLoading.value = true
+
+        viewModelScope.launch() {
+            try {
+                val aiResponse = GeminiService.getResponse(_chatMessages.value, promptText)
+
+                val aiMsg = ChatMessage(
+                    id = "msg_${UUID.randomUUID()}",
+                    text = aiResponse,
+                    isUser = false,
+                    senderName = "UniFunder AI",
+                    initials = "AI",
+                    timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM-dd HH:mm"))
+                )
+                _chatMessages.update { chat_msgs -> chat_msgs + aiMsg }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Gemini API call failed", e)
+            } finally {
+                _isAiLoading.value = false
+            }
         }
+
     }
 
     // Social Media post simulation

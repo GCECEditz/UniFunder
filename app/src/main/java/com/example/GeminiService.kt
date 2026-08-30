@@ -1,6 +1,7 @@
 package com.example
 
 import android.util.Log
+import com.example.model.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -19,37 +20,44 @@ object GeminiService {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    suspend fun getResponse(prompt: String): String = withContext(Dispatchers.IO) {
-        val apiKey = try {
-            BuildConfig.GEMINI_API_KEY
-        } catch (_: Exception) {
-            ""
-        }
+    suspend fun getResponse(chatHistory: List<ChatMessage>, prompt: String): String = withContext(Dispatchers.IO) {
+        val apiKey = try { BuildConfig.GEMINI_API_KEY
+        } catch (_: Exception) { "" }
 
         if (apiKey.isEmpty() || (apiKey == "MY_GEMINI_API_KEY")) {
             Log.w(TAG, "Gemini API key is not set. Using simulated response.")
             return@withContext getSimulatedResponse(prompt)
         }
 
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
-        
-        val jsonPayload = JSONObject().apply {
-            put("contents", JSONArray().apply {
-                put(
-                    JSONObject().apply {
-                        put("parts", JSONArray().apply {
-                            put(JSONObject().apply {
-                                put("text", prompt)
-                            })
-                        })
-                    }
-                )
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+
+        val contentsArray = JSONArray().apply {
+            //loop and add all previous messages stored in our history
+            for (message in chatHistory) {
+                put(JSONObject().apply {
+                    val role = if (message.isUser) "user" else "model"
+                    put("role", role)
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply { put("text", message.text) })
+                    })
+                })
+            }
+            //user query message
+            put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().apply { put("text", prompt) })
+                })
             })
+        }
+
+        val jsonPayload = JSONObject().apply {
+            put("contents", contentsArray)
             put("systemInstruction", JSONObject().apply {
                 put("parts", JSONArray().apply {
                     put(
                         JSONObject().apply {
-                            put("text", "You are UniFunder AI, a smart assistant helping university students and staff in Malaysia partner with NGOs and build successful fundraising campaigns. Keep your answers clear, actionable, friendly, and structured. Incorporate SDG 17 (Partnerships for the Goals) where relevant.")
+                            put("text", "You are UniFunder AI, a smart assistant helping university students and staff in Malaysia partner with NGOs and build successful fundraising campaigns. Keep your answers clear, actionable, friendly, and structured. Incorporate SDG 17 (Partnerships for the Goals) where relevant. You do not have to reintroduce yourself after your first response")
                         }
                     )
                 })
@@ -59,6 +67,8 @@ object GeminiService {
         val requestBody = jsonPayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         val request = Request.Builder()
             .url(url)
+            .addHeader("x-goog-api-key", apiKey)
+            .addHeader("Content-Type", "application/json; charset=utf-8")
             .post(requestBody)
             .build()
 
