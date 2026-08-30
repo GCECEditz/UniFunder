@@ -1,3 +1,43 @@
 <resources>
     <string name="app_name">My Application</string>
+
+    <!-- Budget Screen StrRes -->
+    <string name="budget_screen_title">BUDGETS</string>
+    <string name="budget_screen_search">Search Budgets</string>
+    <string name="budget_screen_export">Export</string>
+    <string name="budget_screen_share">Share</string>
+    <string name="budget_screen_rename">Rename</string>
+    <string name="budget_screen_delete">Delete</string>
+    <string name="budget_screen_export_toast">Exporting %1$s to Google Sheets…</string>
+    <string name="budget_screen_share_toast">Sharing budget template with university board…</string>
+    <string name="budget_screen_rename_toast">Budget Renamed!</string>
+    <string name="budget_screen_rename_new">%1$s Rev2</string>
+    <string name="budget_screen_create">Create!</string>
+    <string name="budget_screen_create_title">Create New Budget</string>
+    <string name="budget_screen_add_link">Add Link"</string>
+    <string name="budget_screen_add_link_toast">Integrating Google Sheets link…</string>
+    <string name="budget_screen_create_budget_name">Budget Name</string>
+    <string name="budget_screen_create_budget_description">Brief Description</string>
+    <string name="budget_screen_create_budget_allocation">Budget Items Allocation</string>
+    <string name="budget_screen_create_budget_placeholder">e.g. Equipment: $100.00</string>
+    <string name="budget_screen_create_toast">Budget Created Successfully!</string>
+
+    <!-- AI Screen StrRes -->
+    <string name="ai_screen_title">ASK AI</string>
+    <string name="ai_screen_profile_name">Gem</string>
+    <string name="ai_screen_gemini_answering">Gemini is answering…</string>
+    <string name="ai_screen_prompt_examples">Ask anything about proposals, budgets…</string>
+
+    <!-- Generics StrRes -->
+    <string name="generic_create">Create</string>
+    <string name="generic_cancel">Cancel</string>
+
+    <!-- Content Desc StrRes -->
+    <string name="content_desc_search">Search</string>
+    <string name="content_desc_askAI">Ask AI</string>
+    <string name="content_desc_addOptions">Add Options</string>
+    <string name="content_desc_addItem">Add Item</string>
+    <string name="content_desc_back">Back</string>
+    <string name="content_desc_menu">Menu</string>
+    <string name="content_desc_send">Send</string>
 </resources>

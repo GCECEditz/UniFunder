@@ -1,0 +1,7 @@
+TODO: Add back button in ask ai screen
+TODO: make it so that only one ask ai button shows up in the budget screen
+TODO: Implement database
+TODO: allow user to switch between light and dark mode
+TODO: change SF (the profile picture name of the user in ask AI Screen to whatever initials the student email uses
+TODO: implement ai
+TODO: integrate budget screen with google sheets
