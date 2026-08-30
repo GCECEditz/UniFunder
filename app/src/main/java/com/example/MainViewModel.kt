@@ -33,7 +33,7 @@ class MainViewModel : ViewModel() {
 
     fun navigateBack(): Boolean {
         if (_backStack.size > 1) {
-            _backStack.removeLast()
+            _backStack.removeAt(_backStack.lastIndex)
             return true
         }
         return false
