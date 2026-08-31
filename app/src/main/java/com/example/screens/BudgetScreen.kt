@@ -53,6 +53,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.Budget
 import com.example.MainViewModel
 import com.example.R
 import com.example.Screen
@@ -67,10 +69,16 @@ fun BudgetScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredBudgets = vm.budgets.filter { it.name.contains(searchQuery, ignoreCase = true) }
 
-    var showCreateBudgetDialog by remember { mutableStateOf(false) }
+    val searchQuery by vm.budget_search_query.collectAsStateWithLifecycle()
+    val budgetName by vm.budget_search_query.collectAsStateWithLifecycle()
+    val budgetDescription by vm.budget_search_query.collectAsStateWithLifecycle()
+
+    val budgets by vm.budgets.collectAsStateWithLifecycle()
+    val filteredBudgets = budgets.filter { it.name.contains(searchQuery, ignoreCase = true) }
+
+    //var showCreateBudgetDialog by remember { mutableStateOf(false) }
+    val showCreateBudgetDialog by vm.create_budget_alert_isActive.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -105,7 +113,7 @@ fun BudgetScreen(
         // Search Bar
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { searchQuery = it },
+            onValueChange = vm::onBudgetSearchQueryChange,
             placeholder = { Text(stringResource(R.string.budget_screen_search), color = LilacAsh) },
             trailingIcon = {
                 Icon(
@@ -138,123 +146,7 @@ fun BudgetScreen(
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
             items(filteredBudgets) { budget ->
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, LilacAsh),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = budget.name,
-                                fontFamily = GoogleSans,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = PineBlue,
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            // Dropdown trig circle icon
-                            Box {
-                                IconButton(
-                                    onClick = {
-                                        vm.activeBudgetDropdownId = if (vm.activeBudgetDropdownId == budget.id) null else budget.id
-                                    },
-                                    modifier = Modifier.testTag("action_budget_${budget.id}")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Add,
-                                        contentDescription = stringResource(R.string.content_desc_menu),
-                                        tint = PineBlue
-                                    )
-                                }
-
-                                val export_toast = stringResource(R.string.budget_screen_export_toast, budget.name)
-                                val share_toast = stringResource(R.string.budget_screen_share_toast)
-                                val rename_toast = stringResource(R.string.budget_screen_rename_toast)
-                                val rename_new = stringResource(R.string.budget_screen_rename_new, budget.name)
-
-                                DropdownMenu(
-                                    expanded = vm.activeBudgetDropdownId == budget.id,
-                                    onDismissRequest = { vm.activeBudgetDropdownId = null }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.budget_screen_export)) },
-                                        onClick = {
-                                            vm.activeBudgetDropdownId = null
-                                            Toast.makeText(context, export_toast, Toast.LENGTH_LONG).show()
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.budget_screen_share)) },
-                                        onClick = {
-                                            vm.activeBudgetDropdownId = null
-                                            Toast.makeText(context, share_toast, Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.budget_screen_rename)) },
-                                        onClick = {
-                                            vm.activeBudgetDropdownId = null
-                                            vm.renameBudget(budget.id, rename_new)
-                                            Toast.makeText(context, rename_toast, Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.budget_screen_delete), color = Color.Red) },
-                                        onClick = {
-                                            vm.activeBudgetDropdownId = null
-                                            vm.deleteBudget(budget.id)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = budget.info,
-                            fontFamily = GoogleSans,
-                            fontSize = 12.sp,
-                            color = VintageGrapeLight
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = budget.details,
-                            fontFamily = GoogleSans,
-                            fontSize = 13.sp,
-                            color = Color.Black
-                        )
-                        if (budget.items.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            budget.items.forEach { item ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 2.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .clip(CircleShape)
-                                            .background(Malachite)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = item,
-                                        fontSize = 12.sp,
-                                        fontFamily = GoogleSans,
-                                        color = VintageGrapeLight
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                BudgetRowItem(vm, modifier, budget)
             }
         }
 
@@ -310,7 +202,7 @@ fun BudgetScreen(
                         text = { Text(stringResource(R.string.budget_screen_create)) },
                         onClick = {
                             showCreateMenu = false
-                            showCreateBudgetDialog = true
+                            vm.onCreateBudgetAlertIsActiveChange(true)
                         }
                     )
                     DropdownMenuItem(
@@ -326,7 +218,7 @@ fun BudgetScreen(
 
         // Primary Action: Large central CREATE NEW BUDGET button (Malachite)
         Button(
-            onClick = { showCreateBudgetDialog = true },
+            onClick = { vm.onCreateBudgetAlertIsActiveChange(true) },
             colors = ButtonDefaults.buttonColors(containerColor = Malachite),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
@@ -346,26 +238,33 @@ fun BudgetScreen(
 
         // Dialog to create a new budget
         if (showCreateBudgetDialog) {
-            var inputName by remember { mutableStateOf("") }
-            var inputDetails by remember { mutableStateOf("") }
+//            var inputName by remember { mutableStateOf("") }
+//            var inputDetails by remember { mutableStateOf("") }
+
+            val inputName by vm.budget_name.collectAsStateWithLifecycle()
+            val inputDetails by vm.budget_description.collectAsStateWithLifecycle()
             var inputItem by remember { mutableStateOf("") }
             val inputItems = remember { mutableStateListOf<String>() }
 
             AlertDialog(
-                onDismissRequest = { showCreateBudgetDialog = false },
+                onDismissRequest = {
+                    vm.onCreateBudgetAlertIsActiveChange(false)
+                    vm.onBudgetDescriptionChange("")
+                    vm.onBudgetNameChange("")
+                                   },
                 title = { Text(stringResource(R.string.budget_screen_create_title), fontFamily = GoogleSans, color = PineBlue, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
                         OutlinedTextField(
                             value = inputName,
-                            onValueChange = { inputName = it },
+                            onValueChange = vm::onBudgetNameChange,
                             label = { Text(stringResource(R.string.budget_screen_create_budget_name)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         OutlinedTextField(
                             value = inputDetails,
-                            onValueChange = { inputDetails = it },
+                            onValueChange = vm::onBudgetDescriptionChange,
                             label = { Text(stringResource(R.string.budget_screen_create_budget_description)) },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -402,7 +301,9 @@ fun BudgetScreen(
                         onClick = {
                             if (inputName.isNotBlank()) {
                                 vm.createNewBudget(inputName, inputDetails, inputItems.toList())
-                                showCreateBudgetDialog = false
+                                vm.onCreateBudgetAlertIsActiveChange(false)
+                                vm.onBudgetDescriptionChange("")
+                                vm.onBudgetNameChange("")
                                 Toast.makeText(context, create_toast, Toast.LENGTH_SHORT).show()
                             }
                         },
@@ -412,11 +313,143 @@ fun BudgetScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showCreateBudgetDialog = false }) {
+                    TextButton(onClick = {
+                        vm.onCreateBudgetAlertIsActiveChange(false)
+                        vm.onBudgetDescriptionChange("")
+                        vm.onBudgetNameChange("")
+                    }) {
                         Text(stringResource(R.string.generic_cancel), color = PineBlue)
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun BudgetRowItem(
+    vm: MainViewModel,
+    modifier: Modifier = Modifier,
+    budget: Budget
+){
+    val context = LocalContext.current
+
+    val activeBudgetDropdownId by vm.activeBudgetDropdownId.collectAsStateWithLifecycle()
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, LilacAsh),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = budget.name,
+                    fontFamily = GoogleSans,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = PineBlue,
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Dropdown trig circle icon
+                Box {
+                    IconButton(
+                        onClick = {
+                            vm.onActiveBudgetDropdownIdChange(if (activeBudgetDropdownId == budget.id) null else budget.id)
+                        },
+                        modifier = Modifier.testTag("action_budget_${budget.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.content_desc_menu),
+                            tint = PineBlue
+                        )
+                    }
+
+                    val export_toast = stringResource(R.string.budget_screen_export_toast, budget.name)
+                    val share_toast = stringResource(R.string.budget_screen_share_toast)
+                    val rename_toast = stringResource(R.string.budget_screen_rename_toast)
+                    val rename_new = stringResource(R.string.budget_screen_rename_new, budget.name)
+
+                    DropdownMenu(
+                        expanded = activeBudgetDropdownId == budget.id,
+                        onDismissRequest = { vm.onActiveBudgetDropdownIdChange(null) }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.budget_screen_export)) },
+                            onClick = {
+                                vm.onActiveBudgetDropdownIdChange(null)
+                                Toast.makeText(context, export_toast, Toast.LENGTH_LONG).show()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.budget_screen_share)) },
+                            onClick = {
+                                vm.onActiveBudgetDropdownIdChange(null)
+                                Toast.makeText(context, share_toast, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.budget_screen_rename)) },
+                            onClick = {
+                                vm.onActiveBudgetDropdownIdChange(null)
+                                vm.renameBudget(budget.id, rename_new)
+                                Toast.makeText(context, rename_toast, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.budget_screen_delete), color = Color.Red) },
+                            onClick = {
+                                vm.onActiveBudgetDropdownIdChange(null)
+                                vm.deleteBudget(budget.id)
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = budget.info,
+                fontFamily = GoogleSans,
+                fontSize = 12.sp,
+                color = VintageGrapeLight
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = budget.details,
+                fontFamily = GoogleSans,
+                fontSize = 13.sp,
+                color = Color.Black
+            )
+            if (budget.items.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                budget.items.forEach { item ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Malachite)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = item,
+                            fontSize = 12.sp,
+                            fontFamily = GoogleSans,
+                            color = VintageGrapeLight
+                        )
+                    }
+                }
+            }
         }
     }
 }

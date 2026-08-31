@@ -87,7 +87,6 @@ class MainViewModel : ViewModel() {
 
     // Active dropdowns
     var activeProposalNgoId by mutableStateOf<String?>(null)
-    var activeBudgetDropdownId by mutableStateOf<String?>(null)
 
     // Proposals State
     val proposals = mutableStateListOf<Proposal>(
@@ -112,29 +111,7 @@ class MainViewModel : ViewModel() {
     )
 
     // Budgets State
-    val budgets = mutableStateListOf<Budget>(
-        Budget(
-            id = "budget_1",
-            name = "HOUSING ASSISTANCE FUND",
-            info = "Active: 2024. Next Review: July 1.",
-            details = "Provides temporary housing support for displaced families under SDG 11 and 17 partnerships.",
-            items = listOf("Temporary Lodging Cost: $180.00", "Emergency Transport Card: $70.00", "Food Allowance: $100.00")
-        ),
-        Budget(
-            id = "budget_2",
-            name = "COMMUNITY GARDEN PROJECT",
-            info = "Active: 2024. Next Review: July 1.",
-            details = "Promotes sustainable local farming on university grounds. Encourages student-NGO cooperation.",
-            items = listOf("Soil & Organic Fertilizer: $100.00", "Seedling Starters: $50.00", "Manual Gardening Set: $150.00", "Instructional Workshop: $50.00")
-        ),
-        Budget(
-            id = "budget_3",
-            name = "EDUCATIONAL SCHOLARSHIP FUND",
-            info = "Active: 2024. Next Review: July 1.",
-            details = "Supports B40 Malaysian student book purchases, material copying, and transport subsidies.",
-            items = listOf("Malaysian textbook vouchers: $200.00", "University printing allowance: $50.00", "LRT student pass: $100.00")
-        )
-    )
+
 
     // Feed State
     val feedItems = mutableStateListOf<String>(
@@ -145,8 +122,7 @@ class MainViewModel : ViewModel() {
     // Social drafts
     val socialDrafts = mutableStateListOf<SocialDraft>()
 
-    // Ask AI Chat State
-
+    // Ask AI Chat State ---------------------------------------------------------------------------
     private val _isAiLoading = MutableStateFlow(false)
     private val _chatText = MutableStateFlow<String>("")
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList()
@@ -172,6 +148,53 @@ class MainViewModel : ViewModel() {
     val aiChatText: StateFlow<String> = _chatText.asStateFlow()
     val isAiLoading = _isAiLoading.asStateFlow()
 
+    fun onChatTextChange(value: String) { _chatText.value = value }
+
+    // Budget Screen States  -----------------------------------------------------------------------
+
+    private val _activeBudgetDropdownId = MutableStateFlow<String?>(null)
+
+    private val _budgets = MutableStateFlow<List<Budget>>(listOf(
+        Budget(
+        id = "budget_1",
+        name = "HOUSING ASSISTANCE FUND",
+        info = "Active: 2024. Next Review: July 1.",
+        details = "Provides temporary housing support for displaced families under SDG 11 and 17 partnerships.",
+        items = listOf("Temporary Lodging Cost: $180.00", "Emergency Transport Card: $70.00", "Food Allowance: $100.00")
+        ),
+        Budget(
+            id = "budget_2",
+            name = "COMMUNITY GARDEN PROJECT",
+            info = "Active: 2024. Next Review: July 1.",
+            details = "Promotes sustainable local farming on university grounds. Encourages student-NGO cooperation.",
+            items = listOf("Soil & Organic Fertilizer: $100.00", "Seedling Starters: $50.00", "Manual Gardening Set: $150.00", "Instructional Workshop: $50.00")
+        ),
+        Budget(
+            id = "budget_3",
+            name = "EDUCATIONAL SCHOLARSHIP FUND",
+            info = "Active: 2024. Next Review: July 1.",
+            details = "Supports B40 Malaysian student book purchases, material copying, and transport subsidies.",
+            items = listOf("Malaysian textbook vouchers: $200.00", "University printing allowance: $50.00", "LRT student pass: $100.00")
+        )))
+
+    private val _budget_search_query = MutableStateFlow<String>("")
+    private val _budget_name = MutableStateFlow<String>("")
+    private val _budget_description = MutableStateFlow<String>("")
+
+    private val _create_budget_alert_isActive = MutableStateFlow<Boolean>(false)
+    var activeBudgetDropdownId = _activeBudgetDropdownId.asStateFlow()
+    var budgets = _budgets.asStateFlow()
+    var budget_search_query = _budget_search_query.asStateFlow()
+    var budget_name = _budget_name.asStateFlow()
+    var budget_description = _budget_description.asStateFlow()
+    var create_budget_alert_isActive = _create_budget_alert_isActive.asStateFlow()
+
+    fun onActiveBudgetDropdownIdChange(value: String?) { _activeBudgetDropdownId.value = value }
+    fun onBudgetSearchQueryChange(value: String) { _budget_search_query.value = value }
+    fun onBudgetNameChange(value: String) { _budget_name.value = value }
+    fun onBudgetDescriptionChange(value: String) { _budget_description.value = value }
+    fun onCreateBudgetAlertIsActiveChange(value: Boolean) { _create_budget_alert_isActive.value = value }
+
     // Proposal Custom Form
     var proposalTitleInput by mutableStateOf("")
     var proposalContentInput by mutableStateOf("")
@@ -180,7 +203,6 @@ class MainViewModel : ViewModel() {
 
     // --- Actions ---
 
-    fun onChatTextChange(value: String) { _chatText.value = value }
 
     fun login() {
         if (email.isNotEmpty() && password.isNotEmpty()) {
@@ -269,27 +291,30 @@ class MainViewModel : ViewModel() {
         val newBudget = Budget(
             id = "budget_${UUID.randomUUID()}",
             name = name.uppercase(),
-            info = "Active: 2026. Next Review: July 1.",
+            info = "", //info = "Active: 2026. Next Review: July 1.",
             details = details,
             items = items
         )
-        budgets.add(newBudget)
+        _budgets.update { budgets -> budgets + newBudget }
+        //budgets.add(newBudget)
         feedItems.add(0, "NEW BUDGET CREATED: ${name.uppercase()}")
     }
 
     fun deleteBudget(id: String) {
-        val b = budgets.find { it.id == id }
+        val b = _budgets.value.find { it.id == id }
         if (b != null) {
-            budgets.remove(b)
+            _budgets.update { budgets -> budgets - b}
+            //budgets.remove(b)
             feedItems.add(0, "DELETED BUDGET: ${b.name}")
         }
     }
 
     fun renameBudget(id: String, newName: String) {
-        val idx = budgets.indexOfFirst { it.id == id }
+        val idx = _budgets.value.indexOfFirst { it.id == id }
         if (idx != -1) {
-            val old = budgets[idx]
-            budgets[idx] = old.copy(name = newName.uppercase())
+            val old = _budgets.value[idx]
+            _budgets.update {it.toMutableList().apply{ this[idx] = old.copy(name = newName.uppercase()) }}
+            //_budgets.value[idx] = old.copy(name = newName.uppercase())
             feedItems.add(0, "RENAMED BUDGET: ${old.name} TO ${newName.uppercase()}")
         }
     }

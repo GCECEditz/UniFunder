@@ -6,5 +6,4 @@ TODO: integrate budget screen with google sheets
 TODO: allow ai to save messages using database
 TODO: update sendername and initials depending on who the user is in mainviewmodel 298 and 299
 
-TODO: update budget search query to use view model
 TODO: add actual edit/rename screen for budgets, confirmations for deletions
