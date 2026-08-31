@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.example.screens
 
 import android.content.Intent
 import android.widget.Toast
@@ -42,7 +42,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -55,17 +57,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.example.Screen
-import com.example.Ngo
-import com.example.Proposal
-import com.example.Budget
-import com.example.SocialDraft
 import com.example.MainViewModel
-import com.example.GeminiService
 import com.example.ui.theme.Malachite
 import com.example.ui.theme.LilacAsh
 import com.example.ui.theme.VintageGrape
 import com.example.ui.theme.VintageGrapeLight
 import com.example.ui.theme.PineBlue
+import java.util.Locale
+import java.util.Random
 
 // --- Custom Font Definition (Google Sans Style / Sans-Serif Default) ---
 val GoogleSans = FontFamily.SansSerif
@@ -209,7 +208,7 @@ fun UniFunderLogo(modifier: Modifier = Modifier, size: Int = 80) {
             )
 
             // Heart outline inside
-            val path = androidx.compose.ui.graphics.Path().apply {
+            val path = Path().apply {
                 moveTo(width / 2f, height * 0.75f)
                 cubicTo(width * 0.15f, height * 0.5f, width * 0.1f, height * 0.25f, width * 0.45f, height * 0.25f)
                 cubicTo(width / 2f, height * 0.25f, width / 2f, height * 0.35f, width / 2f, height * 0.35f)
@@ -384,7 +383,7 @@ fun HomeScreen(
 @Composable
 fun GridItem(
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     tag: String,
     onClick: () -> Unit
 ) {
@@ -824,7 +823,7 @@ fun ProfileScreen(
             item {
                 StatCard(
                     title = "TOTAL FUNDS RAISED",
-                    value = "$${String.format(java.util.Locale.US, "%.2f", vm.fundsRaised)}",
+                    value = "$${String.format(Locale.US, "%.2f", vm.fundsRaised)}",
                     icon = Icons.Filled.AttachMoney
                 )
             }
@@ -864,7 +863,7 @@ fun ProfileScreen(
 fun StatCard(
     title: String,
     value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    icon: ImageVector
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -1561,7 +1560,7 @@ fun QrCodeScreen(
 
                 // Random dots inside QR
                 val seed = vm.selectedNgo.name.hashCode()
-                val random = java.util.Random(seed.toLong())
+                val random = Random(seed.toLong())
                 for (row in 0 until numGrid) {
                     for (col in 0 until numGrid) {
                         // Skip corners

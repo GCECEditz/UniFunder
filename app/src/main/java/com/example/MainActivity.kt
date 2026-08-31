@@ -18,18 +18,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.screens.UniFunderBottomBar
-import com.example.ui.screens.SignInUpScreen
-import com.example.ui.screens.HomeScreen
-import com.example.ui.screens.SelectNgoScreen
-import com.example.ui.screens.ProfileScreen
-import com.example.ui.screens.FeedScreen
-import com.example.ui.screens.SocialMediaScreen
-import com.example.ui.screens.AskAiScreen
-import com.example.ui.screens.BudgetScreen
-import com.example.ui.screens.QrCodeScreen
+import com.example.screens.UniFunderBottomBar
+import com.example.screens.SignInUpScreen
+import com.example.screens.HomeScreen
+import com.example.screens.SelectNgoScreen
+import com.example.screens.ProfileScreen
+import com.example.screens.FeedScreen
+import com.example.screens.SocialMediaScreen
+import com.example.screens.AskAiScreen
+import com.example.screens.BudgetScreen
+import com.example.screens.QrCodeScreen
 import com.example.ui.theme.Malachite
 import com.example.ui.theme.MyApplicationTheme
 
@@ -65,7 +66,8 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     floatingActionButton = {
-                        if (showBottomBar) {
+                        //vm.currentScreen != Screen.Budget to avoid double chat buttons
+                        if (showBottomBar && vm.currentScreen != Screen.Budget) {
                             FloatingActionButton(
                                 onClick = { vm.navigateTo(Screen.AskAi) },
                                 containerColor = Malachite,
@@ -77,7 +79,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.ChatBubble,
-                                    contentDescription = "Ask AI",
+                                    contentDescription = stringResource(R.string.content_desc_askAI),
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
