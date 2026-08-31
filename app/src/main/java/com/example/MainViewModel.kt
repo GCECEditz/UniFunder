@@ -177,23 +177,31 @@ class MainViewModel : ViewModel() {
             items = listOf("Malaysian textbook vouchers: $200.00", "University printing allowance: $50.00", "LRT student pass: $100.00")
         )))
 
+    private val _selected_budget = MutableStateFlow<Budget?>(null)
     private val _budget_search_query = MutableStateFlow<String>("")
     private val _budget_name = MutableStateFlow<String>("")
     private val _budget_description = MutableStateFlow<String>("")
 
     private val _create_budget_alert_isActive = MutableStateFlow<Boolean>(false)
+    private val _rename_budget_alert_isActive = MutableStateFlow<Boolean>(false)
+
+
+    var selectedBudget = _selected_budget.asStateFlow()
     var activeBudgetDropdownId = _activeBudgetDropdownId.asStateFlow()
     var budgets = _budgets.asStateFlow()
     var budget_search_query = _budget_search_query.asStateFlow()
     var budget_name = _budget_name.asStateFlow()
     var budget_description = _budget_description.asStateFlow()
     var create_budget_alert_isActive = _create_budget_alert_isActive.asStateFlow()
+    var rename_budget_alert_isActive = _rename_budget_alert_isActive.asStateFlow()
 
     fun onActiveBudgetDropdownIdChange(value: String?) { _activeBudgetDropdownId.value = value }
     fun onBudgetSearchQueryChange(value: String) { _budget_search_query.value = value }
     fun onBudgetNameChange(value: String) { _budget_name.value = value }
     fun onBudgetDescriptionChange(value: String) { _budget_description.value = value }
     fun onCreateBudgetAlertIsActiveChange(value: Boolean) { _create_budget_alert_isActive.value = value }
+    fun onRenameBudgetAlertIsActiveChange(value: Boolean) { _rename_budget_alert_isActive.value = value }
+    fun onSelectedBudgetChange(value: Budget?) { _selected_budget.value = value }
 
     // Proposal Custom Form
     var proposalTitleInput by mutableStateOf("")
@@ -309,11 +317,11 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun renameBudget(id: String, newName: String) {
+    fun renameBudget(id: String, newName: String, newDetails: String) {
         val idx = _budgets.value.indexOfFirst { it.id == id }
         if (idx != -1) {
             val old = _budgets.value[idx]
-            _budgets.update {it.toMutableList().apply{ this[idx] = old.copy(name = newName.uppercase()) }}
+            _budgets.update {it.toMutableList().apply{ this[idx] = old.copy(name = newName.uppercase(), details = newDetails) }}
             //_budgets.value[idx] = old.copy(name = newName.uppercase())
             feedItems.add(0, "RENAMED BUDGET: ${old.name} TO ${newName.uppercase()}")
         }

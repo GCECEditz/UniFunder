@@ -62,6 +62,7 @@ import com.example.ui.theme.LilacAsh
 import com.example.ui.theme.Malachite
 import com.example.ui.theme.PineBlue
 import com.example.ui.theme.VintageGrapeLight
+import kotlinx.coroutines.flow.compose
 
 @Composable
 fun BudgetScreen(
@@ -71,14 +72,12 @@ fun BudgetScreen(
     val context = LocalContext.current
 
     val searchQuery by vm.budget_search_query.collectAsStateWithLifecycle()
-    val budgetName by vm.budget_search_query.collectAsStateWithLifecycle()
-    val budgetDescription by vm.budget_search_query.collectAsStateWithLifecycle()
 
     val budgets by vm.budgets.collectAsStateWithLifecycle()
     val filteredBudgets = budgets.filter { it.name.contains(searchQuery, ignoreCase = true) }
 
-    //var showCreateBudgetDialog by remember { mutableStateOf(false) }
     val showCreateBudgetDialog by vm.create_budget_alert_isActive.collectAsStateWithLifecycle()
+    val showRenameBudgetDialog by vm.rename_budget_alert_isActive.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -216,31 +215,28 @@ fun BudgetScreen(
             }
         }
 
-        // Primary Action: Large central CREATE NEW BUDGET button (Malachite)
-        Button(
-            onClick = { vm.onCreateBudgetAlertIsActiveChange(true) },
-            colors = ButtonDefaults.buttonColors(containerColor = Malachite),
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 15.dp)
-                .height(54.dp)
-                .testTag("create_budget_button")
-        ) {
-            Text(
-                text = stringResource(R.string.budget_screen_create_title),
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.White
-            )
-        }
+//        // Primary Action: Large central CREATE NEW BUDGET button (Malachite)
+//        Button(
+//            onClick = { vm.onCreateBudgetAlertIsActiveChange(true) },
+//            colors = ButtonDefaults.buttonColors(containerColor = Malachite),
+//            shape = RoundedCornerShape(10.dp),
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(horizontal = 20.dp, vertical = 15.dp)
+//                .height(54.dp)
+//                .testTag("create_budget_button")
+//        ) {
+//            Text(
+//                text = stringResource(R.string.budget_screen_create_title),
+//                fontFamily = GoogleSans,
+//                fontWeight = FontWeight.Bold,
+//                fontSize = 16.sp,
+//                color = Color.White
+//            )
+//        }
 
         // Dialog to create a new budget
         if (showCreateBudgetDialog) {
-//            var inputName by remember { mutableStateOf("") }
-//            var inputDetails by remember { mutableStateOf("") }
-
             val inputName by vm.budget_name.collectAsStateWithLifecycle()
             val inputDetails by vm.budget_description.collectAsStateWithLifecycle()
             var inputItem by remember { mutableStateOf("") }
@@ -323,7 +319,74 @@ fun BudgetScreen(
                 }
             )
         }
+
+        // Dialog to rename budget
+        if (showRenameBudgetDialog){
+            val selectedBudget by vm.selectedBudget.collectAsStateWithLifecycle()
+
+            selectedBudget?.let{ selectedBudget ->
+                val renameName by vm.budget_name.collectAsStateWithLifecycle()
+                val renameDetails by vm.budget_description.collectAsStateWithLifecycle()
+
+                AlertDialog(
+                    onDismissRequest = {
+                        reset_rename_vars(vm)
+                    },
+                    title = { Text(stringResource(R.string.budget_screen_rename_title), fontFamily = GoogleSans, color = PineBlue, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            OutlinedTextField(
+                                value = renameName,
+                                onValueChange = vm::onBudgetNameChange,
+                                label = { Text(stringResource(R.string.budget_screen_create_budget_name)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = renameDetails,
+                                onValueChange = vm::onBudgetDescriptionChange,
+                                label = { Text(stringResource(R.string.budget_screen_create_budget_description)) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(stringResource(R.string.budget_screen_create_budget_allocation), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    },
+                    confirmButton = {
+                        val rename_toast = stringResource(R.string.budget_screen_rename_toast)
+                        Button(
+                            onClick = {
+                                if (renameName.isNotBlank()) {
+                                    vm.renameBudget(selectedBudget.id, renameName, renameDetails)
+                                    reset_rename_vars(vm)
+                                    Toast.makeText(context, rename_toast, Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Malachite)
+                        ) {
+                            Text(stringResource(R.string.generic_rename))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            reset_rename_vars(vm)
+                        }) {
+                            Text(stringResource(R.string.generic_cancel), color = PineBlue)
+                        }
+                    }
+                )
+            }
+        }
     }
+}
+
+fun reset_rename_vars(vm: MainViewModel){
+    vm.onRenameBudgetAlertIsActiveChange(false)
+    vm.onActiveBudgetDropdownIdChange(null)
+    vm.onBudgetDescriptionChange("")
+    vm.onBudgetNameChange("")
+    vm.onSelectedBudgetChange(null)
 }
 
 @Composable
@@ -360,6 +423,7 @@ fun BudgetRowItem(
                 Box {
                     IconButton(
                         onClick = {
+                            vm.onSelectedBudgetChange(null)
                             vm.onActiveBudgetDropdownIdChange(if (activeBudgetDropdownId == budget.id) null else budget.id)
                         },
                         modifier = Modifier.testTag("action_budget_${budget.id}")
@@ -373,12 +437,13 @@ fun BudgetRowItem(
 
                     val export_toast = stringResource(R.string.budget_screen_export_toast, budget.name)
                     val share_toast = stringResource(R.string.budget_screen_share_toast)
-                    val rename_toast = stringResource(R.string.budget_screen_rename_toast)
-                    val rename_new = stringResource(R.string.budget_screen_rename_new, budget.name)
 
                     DropdownMenu(
                         expanded = activeBudgetDropdownId == budget.id,
-                        onDismissRequest = { vm.onActiveBudgetDropdownIdChange(null) }
+                        onDismissRequest = {
+                            vm.onActiveBudgetDropdownIdChange(null)
+                            vm.onSelectedBudgetChange(null)
+                        }
                     ) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.budget_screen_export)) },
@@ -398,8 +463,10 @@ fun BudgetRowItem(
                             text = { Text(stringResource(R.string.budget_screen_rename)) },
                             onClick = {
                                 vm.onActiveBudgetDropdownIdChange(null)
-                                vm.renameBudget(budget.id, rename_new)
-                                Toast.makeText(context, rename_toast, Toast.LENGTH_SHORT).show()
+                                vm.onRenameBudgetAlertIsActiveChange(true)
+                                vm.onSelectedBudgetChange(budget)
+                                vm.onBudgetNameChange(budget.name)
+                                vm.onBudgetDescriptionChange(budget.details)
                             }
                         )
                         DropdownMenuItem(

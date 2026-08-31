@@ -12,8 +12,9 @@
     <string name="budget_screen_share_toast">Sharing budget template with university board…</string>
     <string name="budget_screen_rename_toast">Budget Renamed!</string>
     <string name="budget_screen_rename_new">%1$s Rev2</string>
-    <string name="budget_screen_create">Create!</string>
+    <string name="budget_screen_create">Create</string>
     <string name="budget_screen_create_title">Create New Budget</string>
+    <string name="budget_screen_rename_title">Rename Budget</string>
     <string name="budget_screen_add_link">Add Link"</string>
     <string name="budget_screen_add_link_toast">Integrating Google Sheets link…</string>
     <string name="budget_screen_create_budget_name">Budget Name</string>
@@ -30,6 +31,7 @@
 
     <!-- Generics StrRes -->
     <string name="generic_create">Create</string>
+    <string name="generic_rename">Rename</string>
     <string name="generic_cancel">Cancel</string>
 
     <!-- Content Desc StrRes -->
