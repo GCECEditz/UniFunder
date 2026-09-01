@@ -1,5 +1,10 @@
 package com.example.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -394,6 +399,16 @@ fun BudgetRowItem(
 
     val activeBudgetDropdownId by vm.activeBudgetDropdownId.collectAsStateWithLifecycle()
     Card(
+        onClick = {
+            try {
+                Toast.makeText(context, "Opening in Google Sheets. Ensure you are logged into the same account.", Toast.LENGTH_LONG).show()
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(budget.sheetLink))
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Unable to open link", Toast.LENGTH_SHORT).show()
+            }
+        },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, LilacAsh),
@@ -431,7 +446,6 @@ fun BudgetRowItem(
                     }
 
                     val export_toast = stringResource(R.string.budget_screen_export_toast, budget.name)
-                    val share_toast = stringResource(R.string.budget_screen_share_toast)
 
                     DropdownMenu(
                         expanded = activeBudgetDropdownId == budget.id,
@@ -448,13 +462,6 @@ fun BudgetRowItem(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.budget_screen_share)) },
-                            onClick = {
-                                vm.onActiveBudgetDropdownIdChange(null)
-                                Toast.makeText(context, share_toast, Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.budget_screen_rename)) },
                             onClick = {
                                 vm.onActiveBudgetDropdownIdChange(null)
@@ -462,6 +469,16 @@ fun BudgetRowItem(
                                 vm.onSelectedBudgetChange(budget)
                                 vm.onBudgetNameChange(budget.name)
                                 vm.onBudgetDescriptionChange(budget.details)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.budget_screen_copy_link)) },
+                            onClick = {
+                                vm.onActiveBudgetDropdownIdChange(null)
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("Budget Sheet Link", budget.sheetLink)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
                             }
                         )
                         DropdownMenuItem(
