@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.example.model.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,12 +41,22 @@ class MainViewModel : ViewModel() {
     }
 
     // --- Auth State ---
-    var email by mutableStateOf("")
-    var password by mutableStateOf("")
     var isLoggedIn by mutableStateOf(value = false)
-    val isUniversityEmail: Boolean
-        get() = email.endsWith(".edu.my", ignoreCase = true) || 
-                (email.contains("student", ignoreCase = true) && email.contains(".edu"))
+    var loggedInEmail by mutableStateOf("")
+    var loggedInDisplayName by mutableStateOf("")
+    var authError by mutableStateOf<String?>(null)
+
+    val userInitials: String
+        get() = if (loggedInDisplayName.isNotBlank()) {
+            val parts = loggedInDisplayName.trim().split("\\s+".toRegex())
+            if (parts.size >= 2) {
+                (parts.first().take(1) + parts.last().take(1)).uppercase()
+            } else {
+                parts.first().take(1).uppercase()
+            }
+        } else {
+            "UF"
+        }
 
     // --- Core Statistical State ---
     var fundsRaised by mutableStateOf(350.0)
@@ -61,25 +72,46 @@ class MainViewModel : ViewModel() {
             id = "mt_miriam",
             name = "Mount Miriam Cancer Hospital",
             website = "https://mountmiriam.com",
-            description = "Provides compassionate, affordable cancer treatment & care services to needy patients.",
-            initials = "NM",
-            docTemplateUrl = "https://docs.google.com/document/d/1XyR7EovGOfuD_K3Lp6jE6mHl_Wz3AxhN",
+            email = "fundraising@mountmiriam.com",
+            description = "A not-for-profit cancer treatment centre providing compassionate, affordable oncology care and subsidised treatment to needy patients regardless of background.",
+            initials = "MM",
+            docTemplateUrl = "https://docs.google.com/document/d/1LeLGtoNpPN26ljF8cv7iRGjnhNJTW8iXs2NI4sFI6mU/copy"
         ),
         Ngo(
             id = "habitat",
             name = "The Habitat Foundation",
             website = "https://habitatfoundation.org.my",
-            description = "Supports biodiversity conservation and natural habitat protection in Malaysia.",
+            email = "info@habitatfoundation.org.my",
+            description = "A Penang-based conservation organisation supporting biodiversity research, environmental education, and natural habitat protection in Malaysia's tropical rainforests.",
             initials = "HF",
-            docTemplateUrl = "https://docs.google.com/document/d/1B_L76fHe8O8mU27x2pEwF6vJgYhG_28"
+            docTemplateUrl = "https://docs.google.com/document/d/1iBrvuj032V2WNTEzO1pwCqlmucCoigVSo7k4ZfPdVuA/copy"
         ),
         Ngo(
             id = "kawan",
-            name = "Kawan NGO",
-            website = "https://www.kawanngo.org",
-            description = "Educational assistance, community empowerment, and food security in Malaysia.",
+            name = "Kawan",
+            website = "https://www.ywampenang.org",
+            email = "contact@kawanngo.org",
+            description = "A centre to help needy people living in the city of George Town. It is run by an interdenominational Christian organisation called YWAM Malaysia. The acronym stands for Youth With A Mission.",
             initials = "KW",
-            docTemplateUrl = "https://docs.google.com/document/d/1A_kO_u8LhP_V_3uN7v8C6XWnL29z_30"
+            docTemplateUrl = "https://docs.google.com/document/d/17_Tc1j1k_rXmmewOeUSfPwMx6zqaRSZhRob4mTcjsEk/copy"
+        ),
+        Ngo(
+            id = "st_nicholas",
+            name = "St. Nicholas Home, Penang",
+            website = "https://www.stnicholashome.org.my",
+            email = "info@stnicholashome.org.my",
+            description = "Established in 1926, one of Penang's oldest NGOs providing education, vocational training, and residential care for the blind and visually impaired, empowering them to live independent and dignified lives.",
+            initials = "SN",
+            docTemplateUrl = "https://docs.google.com/document/d/1KX2d1gN6C25kSn_jUz5xodyyQ2-zBrC0L6wFR_V2IMc/copy"
+        ),
+        Ngo(
+            id = "wcc",
+            name = "Women's Centre for Change (WCC) Penang",
+            website = "https://www.wccpenang.org",
+            email = "support@wccpenang.org",
+            description = "A non-profit organisation established in 1985 promoting gender equality and providing crisis support, counselling, shelter, and legal aid to women and children facing domestic violence and abuse in Penang.",
+            initials = "WC",
+            docTemplateUrl = "https://docs.google.com/document/d/1eAp7xxN1fpHmVg-VQbFai5AwFCfZ_sc93ciIf6Vh534/copy"
         )
     )
 
@@ -96,6 +128,7 @@ class MainViewModel : ViewModel() {
             ngoName = "Mount Miriam Cancer Hospital",
             title = "TARUMT Cancer Care Awareness Drive",
             content = "This project proposal outlines a partnership between university students and Mount Miriam Cancer Hospital to conduct cancer awareness seminars and raise MYR 500 in funding to support subsidised chemotherapy treatments for B40 patients.",
+            docsLink = "",
             isSent = true,
             isApproved = true
         ),
@@ -105,6 +138,7 @@ class MainViewModel : ViewModel() {
             ngoName = "The Habitat Foundation",
             title = "Eco-Volunteer Rainforest Regeneration",
             content = "Proposal for students to volunteer in conservation and build educational exhibits. Fundraising goal is set to fund soil enrichment and native seedling planting.",
+            docsLink = "",
             isSent = false,
             isApproved = false
         )
@@ -206,33 +240,47 @@ class MainViewModel : ViewModel() {
     // Proposal Custom Form
     var proposalTitleInput by mutableStateOf("")
     var proposalContentInput by mutableStateOf("")
+    var proposalDocsLink by mutableStateOf("")
     var showEditProposalDialog by mutableStateOf(false)
     var activeEditingProposal by mutableStateOf<Proposal?>(null)
 
     // --- Actions ---
 
 
-    fun login() {
-        if (email.isNotEmpty() && password.isNotEmpty()) {
+    fun handleGoogleSignIn(email: String) {
+        authError = null
+        if (email.endsWith(".edu.my", ignoreCase = true)) {
+            loggedInEmail = email
             isLoggedIn = true
             navigateTo(Screen.Home)
+        } else {
+            authError = "Access denied. Please sign in with a university Google Workspace account (*.edu.my)."
         }
     }
 
-    fun logout() {
+    fun logout(googleSignInClient: GoogleSignInClient? = null) {
+        try {
+            googleSignInClient?.signOut()
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Google SignOut failed", e)
+        }
         isLoggedIn = false
-        email = ""
-        password = ""
+        loggedInEmail = ""
+        loggedInDisplayName = ""
+        authError = null
+        proposalDocsLink = ""
         _backStack.clear()
         _backStack.add(Screen.SignInUp)
     }
 
     fun prepareNewProposal(ngo: Ngo) {
         selectedNgo = ngo
+        proposalDocsLink = ""
         val existing = proposals.find { it.ngoId == ngo.id }
         if (existing != null) {
             proposalTitleInput = existing.title
             proposalContentInput = existing.content
+            proposalDocsLink = existing.docsLink
             activeEditingProposal = existing
         } else {
             proposalTitleInput = "University-NGO Collaboration with ${ngo.name}"
@@ -242,13 +290,13 @@ class MainViewModel : ViewModel() {
         showEditProposalDialog = true
     }
 
-    fun saveProposal(title: String, content: String) {
+    fun saveProposal(title: String, content: String, docsLink: String) {
         val editing = activeEditingProposal
         if (editing != null) {
             // Update existing
             val idx = proposals.indexOfFirst { it.id == editing.id }
             if (idx != -1) {
-                proposals[idx] = editing.copy(title = title, content = content)
+                proposals[idx] = editing.copy(title = title, content = content, docsLink = docsLink)
             }
         } else {
             // Create new
@@ -258,6 +306,7 @@ class MainViewModel : ViewModel() {
                 ngoName = selectedNgo.name,
                 title = title,
                 content = content,
+                docsLink = docsLink,
                 isSent = false,
                 isApproved = false
             )
@@ -336,8 +385,8 @@ class MainViewModel : ViewModel() {
             id = "msg_${UUID.randomUUID()}",
             text = promptText,
             isUser = true,
-            senderName = "STEPHANIE FRANKLIN",
-            initials = "SF",
+            senderName = if (loggedInDisplayName.isBlank()) "UniFunder User" else loggedInDisplayName,
+            initials = userInitials,
             timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM-dd HH:mm"))
         )
         _chatMessages.update { chat_msgs -> chat_msgs + userMsg }

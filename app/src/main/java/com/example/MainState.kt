@@ -18,6 +18,7 @@ data class Ngo(
     val id: String,
     val name: String,
     val website: String,
+    val email: String,
     val description: String,
     val initials: String,
     val docTemplateUrl: String
@@ -29,6 +30,7 @@ data class Proposal(
     val ngoName: String,
     val title: String,
     val content: String,
+    val docsLink: String = "",
     var isSent: Boolean = false,
     var isApproved: Boolean = false
 )

@@ -29,7 +29,9 @@ import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Person
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.Handshake
@@ -539,8 +541,8 @@ fun SelectNgoScreen(
                             text = ngo.description,
                             fontFamily = GoogleSans,
                             fontSize = 12.sp,
-                            color = VintageGrapeLight,
-                            maxLines = 1,
+                            color = PineBlue.copy(alpha = 0.6f),
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -570,16 +572,24 @@ fun SelectNgoScreen(
                                 text = { Text("Visit website", fontFamily = GoogleSans, color = PineBlue) },
                                 onClick = {
                                     vm.activeProposalNgoId = null
-                                    // Simulated web launching or opening standard dialog
-                                    Toast.makeText(context, "Visiting ${ngo.name}'s website...", Toast.LENGTH_SHORT).show()
-                                    val intent = Intent(Intent.ACTION_VIEW, ngo.website.toUri())
-                                    context.startActivity(intent)
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, ngo.website.toUri())
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "No browser available", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text("Project proposal", fontFamily = GoogleSans, color = PineBlue) },
                                 onClick = {
                                     vm.activeProposalNgoId = null
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, ngo.docTemplateUrl.toUri())
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "No browser available", Toast.LENGTH_SHORT).show()
+                                    }
                                     vm.prepareNewProposal(ngo)
                                 }
                             )
@@ -593,13 +603,40 @@ fun SelectNgoScreen(
         // Primary Action Email Proposal Button at the bottom
         Button(
             onClick = {
-                // Check if we have active proposals
-                val unsent = vm.proposals.find { !it.isSent }
-                if (unsent != null) {
-                    vm.sendEmailProposal(unsent)
-                    Toast.makeText(context, "Proposal sent to ${unsent.ngoName}!", Toast.LENGTH_LONG).show()
+                val proposal = vm.proposals.findLast { it.ngoId == vm.selectedNgo.id }
+                if (proposal != null) {
+                    val emailBody = """
+                        Dear ${vm.selectedNgo.name},
+                        
+                        I am writing to you on behalf of UniFunder, a student-led initiative aligned with UN SDG 17: Partnerships for the Goals. We are interested in collaborating with your esteemed organisation.
+                        
+                        ---
+                        PROPOSAL: ${proposal.title}
+                        
+                        ${proposal.content}
+                        ---
+                        
+                        ${if (proposal.docsLink.isNotBlank()) "The full proposal document is available at:\n${proposal.docsLink}\n" else ""}
+                        Thank you for your time and consideration.
+                        
+                        Best regards,
+                        UniFunder Student Representative
+                    """.trimIndent()
+
+                    try {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = android.net.Uri.parse("mailto:")
+                            putExtra(Intent.EXTRA_EMAIL, arrayOf(vm.selectedNgo.email))
+                            putExtra(Intent.EXTRA_SUBJECT, "Project Proposal - ${proposal.title}")
+                            putExtra(Intent.EXTRA_TEXT, emailBody)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Send Email"))
+                        vm.sendEmailProposal(proposal)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "No email app available", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(context, "Create a Project proposal first using the NGO (+) action!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Please create a proposal first", Toast.LENGTH_SHORT).show()
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Malachite),
@@ -634,6 +671,7 @@ fun SelectNgoScreen(
         if (vm.showEditProposalDialog) {
             var inputTitle by remember { mutableStateOf(vm.proposalTitleInput) }
             var inputContent by remember { mutableStateOf(vm.proposalContentInput) }
+            var inputDocsLink by remember { mutableStateOf(vm.proposalDocsLink) }
 
             AlertDialog(
                 onDismissRequest = { vm.showEditProposalDialog = false },
@@ -673,6 +711,22 @@ fun SelectNgoScreen(
                                 .fillMaxWidth()
                                 .testTag("proposal_content_input")
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = inputDocsLink,
+                            onValueChange = { inputDocsLink = it },
+                            placeholder = { Text("PASTE YOUR EDITED GOOGLE DOCS LINK HERE", color = LilacAsh) },
+                            label = { Text("Google Docs Link") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PineBlue,
+                                unfocusedBorderColor = LilacAsh
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("proposal_docs_link_input")
+                        )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = "Based on SDG 17 partnership parameters.",
@@ -683,7 +737,7 @@ fun SelectNgoScreen(
                 },
                 confirmButton = {
                     Button(
-                        onClick = { vm.saveProposal(inputTitle, inputContent) },
+                        onClick = { vm.saveProposal(inputTitle, inputContent, inputDocsLink) },
                         colors = ButtonDefaults.buttonColors(containerColor = Malachite)
                     ) {
                         Text("Save Draft")
@@ -705,6 +759,7 @@ fun SelectNgoScreen(
 @Composable
 fun ProfileScreen(
     vm: MainViewModel,
+    googleSignInClient: GoogleSignInClient,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -736,7 +791,7 @@ fun ProfileScreen(
                 color = PineBlue
             )
             Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = { vm.logout() }, modifier = Modifier.testTag("logout_button")) {
+            IconButton(onClick = { vm.logout(googleSignInClient) }, modifier = Modifier.testTag("logout_button")) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                     contentDescription = "Logout",
@@ -760,12 +815,12 @@ fun ProfileScreen(
                     .border(3.dp, LilacAsh, CircleShape)
                     .background(LilacAsh.copy(alpha = 0.3f), CircleShape)
             ) {
-                // Representing generic silhouette silhouette photo
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "User Photo",
-                    tint = VintageGrape,
-                    modifier = Modifier.size(70.dp)
+                Text(
+                    text = vm.userInitials,
+                    fontFamily = GoogleSans,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 40.sp,
+                    color = VintageGrape
                 )
             }
 
@@ -773,7 +828,7 @@ fun ProfileScreen(
 
             // User details
             Text(
-                text = "STEPHANIE FRANKLIN",
+                text = if (vm.loggedInDisplayName.isBlank()) "UNIFUNDER USER" else vm.loggedInDisplayName.uppercase(),
                 fontFamily = GoogleSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
@@ -787,12 +842,12 @@ fun ProfileScreen(
                 color = VintageGrapeLight
             )
             Text(
-                text = vm.email.ifEmpty { "gcecgeography@gmail.com" },
+                text = vm.loggedInEmail.ifEmpty { "gcecgeography@gmail.com" },
                 fontFamily = GoogleSans,
                 fontSize = 13.sp,
                 color = LilacAsh
             )
-            if (vm.isUniversityEmail) {
+            if (vm.isLoggedIn && vm.loggedInEmail.endsWith(".edu.my", ignoreCase = true)) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
@@ -1017,14 +1072,19 @@ fun FeedCard(text: String) {
 // ==========================================
 // 5. SIGN IN / UP SCREEN
 // ==========================================
+/* 
+ * NOTE: For real deployment, the .edu.my domain list should be fetched from a backend allowlist 
+ * rather than hardcoded, since some Malaysian universities use variants like 
+ * .um.edu.my, .utar.edu.my, .taylors.edu.my, etc.
+ */
 @Composable
 fun SignInUpScreen(
     vm: MainViewModel,
+    onGoogleSignInClick: () -> Unit,
+    googleSignInClient: GoogleSignInClient,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
@@ -1033,245 +1093,79 @@ fun SignInUpScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        item {
-            Spacer(modifier = Modifier.height(60.dp))
-            // Center Logo Representation matching our professional brand container
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(VintageGrape, RoundedCornerShape(20.dp))
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.People,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(44.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "UniFunder",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 36.sp,
-                color = VintageGrape,
-                letterSpacing = (-1).sp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "WELCOME TO CHARITY APP",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.sp,
-                letterSpacing = 1.sp,
-                color = VintageGrapeLight
-            )
+        UniFunderLogo(size = 100)
 
-            Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-            // Email Field
-            OutlinedTextField(
-                value = vm.email,
-                onValueChange = { vm.email = it },
-                placeholder = { Text("ENTER EMAIL", color = LilacAsh) },
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PineBlue,
-                    unfocusedBorderColor = LilacAsh.copy(alpha = 0.5f),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("email_input")
-            )
+        Text(
+            text = "WELCOME TO UNIFUNDER",
+            fontFamily = GoogleSans,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = PineBlue,
+            letterSpacing = 1.sp
+        )
 
-            // Live validation prompt for University Email
-            if (vm.email.isNotEmpty()) {
-                val statusText = if (vm.isUniversityEmail) {
-                    "🎓 University email verified (.edu.my)"
-                } else {
-                    "💡 Use a Malaysian university email (ending in .edu.my)"
-                }
-                val statusColor = if (vm.isUniversityEmail) Malachite else VintageGrapeLight
-                Text(
-                    text = statusText,
-                    fontSize = 12.sp,
-                    fontFamily = GoogleSans,
-                    fontWeight = FontWeight.Medium,
-                    color = statusColor,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, start = 4.dp)
-                )
-            }
+        Spacer(modifier = Modifier.height(40.dp))
 
-            Spacer(modifier = Modifier.height(15.dp))
-
-            // Password Field
-            OutlinedTextField(
-                value = vm.password,
-                onValueChange = { vm.password = it },
-                placeholder = { Text("ENTER PASSWORD", color = LilacAsh) },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PineBlue,
-                    unfocusedBorderColor = LilacAsh.copy(alpha = 0.5f),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("password_input")
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // LOG IN Button (Malachite)
-            Button(
-                onClick = {
-                    if (vm.email.isBlank() || vm.password.isBlank()) {
-                        Toast.makeText(context, "Please enter both fields!", Toast.LENGTH_SHORT).show()
-                    } else if (!vm.isUniversityEmail) {
-                        // Accept anyway for prototyping ease, but prompt
-                        Toast.makeText(context, "Prototyping Mode: Logged in (Non-Uni email).", Toast.LENGTH_SHORT).show()
-                        vm.login()
-                    } else {
-                        Toast.makeText(context, "Welcome, Student!", Toast.LENGTH_SHORT).show()
-                        vm.login()
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Malachite),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("login_button")
-            ) {
-                Text(
-                    text = "LOG IN",
-                    fontFamily = GoogleSans,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.height(15.dp))
-
-            // Forgot Password Link
-            Text(
-                text = "FORGOT PASSWORD?",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = PineBlue,
-                modifier = Modifier
-                    .clickable {
-                        Toast.makeText(context, "Reset link sent!", Toast.LENGTH_SHORT).show()
-                    }
-                    .testTag("forgot_password_link")
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Separator with OR
+        // LOG IN WITH GOOGLE Button
+        Button(
+            onClick = {
+                vm.authError = null
+                onGoogleSignInClick()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Malachite),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("google_login_button")
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.Center
             ) {
-                Box(modifier = Modifier.weight(1f).height(1.dp).background(LilacAsh)) // dashed concept
-                Text(
-                    text = " OR ",
-                    fontFamily = GoogleSans,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = PineBlue,
-                    modifier = Modifier.padding(horizontal = 10.dp)
+                // TODO: Replace with R.drawable.ic_google
+                Icon(
+                    imageVector = Icons.Default.Mail,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
-                Box(modifier = Modifier.weight(1f).height(1.dp).background(LilacAsh))
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // CONTINUE WITH GOOGLE Button
-            OutlinedButton(
-                onClick = {
-                    vm.email = "student.tarumt@tarumt.edu.my"
-                    vm.password = "password123"
-                    vm.login()
-                    Toast.makeText(context, "Auto-filled with verified uni email!", Toast.LENGTH_SHORT).show()
-                },
-                border = BorderStroke(1.5.dp, PineBlue),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("google_login_button")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .border(1.dp, PineBlue, CircleShape)
-                    ) // circular icon representation
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "CONTINUE WITH GOOGLE",
-                        fontFamily = GoogleSans,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = PineBlue
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            Text(
-                text = "STILL HAVEN'T CREATED ACCOUNT?",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = PineBlue
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // SIGN UP Button (Malachite)
-            Button(
-                onClick = {
-                    if (vm.email.isBlank() || vm.password.isBlank()) {
-                        Toast.makeText(context, "Fill in fields to register!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Account Registered! Welcome.", Toast.LENGTH_SHORT).show()
-                        vm.login()
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Malachite),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("signup_button")
-            ) {
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "SIGN UP",
+                    text = "LOG IN WITH GOOGLE",
                     fontFamily = GoogleSans,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = Color.White
                 )
             }
-
-            Spacer(modifier = Modifier.height(40.dp))
         }
+
+        vm.authError?.let { error ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = error,
+                color = Color.Red,
+                fontSize = 12.sp,
+                fontFamily = GoogleSans,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Only university Google Workspace accounts are allowed",
+            color = PineBlue.copy(alpha = 0.6f),
+            fontSize = 11.sp,
+            fontFamily = GoogleSans,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

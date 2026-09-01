@@ -1,11 +1,17 @@
 package com.example
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,9 +45,38 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .build()
+        val googleSignInClient = GoogleSignIn.getClient(this, gso)
+
         setContent {
             MyApplicationTheme {
                 val vm: MainViewModel = viewModel()
+
+                val launcher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    try {
+                        val account = task.getResult(ApiException::class.java)
+                        account?.let { acc ->
+                            vm.loggedInDisplayName = acc.displayName ?: acc.email?.substringBefore("@") ?: "User"
+                            acc.email?.let { email ->
+                                vm.handleGoogleSignIn(email)
+                            } ?: run {
+                                vm.authError = "Google Account does not have an email address associated."
+                            }
+                        }
+                    } catch (e: ApiException) {
+                        Log.e("MainActivity", "Google sign in failed code=${e.statusCode}", e)
+                        vm.authError = "Google Sign-In failed (Error ${e.statusCode}). Check SHA-1 registration in Google Console."
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Unexpected error during sign in", e)
+                        vm.authError = "An unexpected error occurred: ${e.message}"
+                    }
+                }
 
                 // Map system physical back button to our custom VM backstack
                 BackHandler(enabled = vm.currentScreen != Screen.SignInUp) {
@@ -53,7 +88,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Bottom bar visibility conditions
-                val showBottomBar = vm.isLoggedIn && (vm.currentScreen != Screen.AskAi)
+                val showBottomBar = vm.isLoggedIn && (vm.currentScreen != Screen.SignInUp) && (vm.currentScreen != Screen.AskAi)
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -67,7 +102,7 @@ class MainActivity : ComponentActivity() {
                     },
                     floatingActionButton = {
                         //vm.currentScreen != Screen.Budget to avoid double chat buttons
-                        if (showBottomBar && vm.currentScreen != Screen.Budget) {
+                        if (showBottomBar && vm.currentScreen != Screen.Budget && vm.currentScreen != Screen.SignInUp) {
                             FloatingActionButton(
                                 onClick = { vm.navigateTo(Screen.AskAi) },
                                 containerColor = Malachite,
@@ -92,10 +127,16 @@ class MainActivity : ComponentActivity() {
                         label = "ScreenTransition"
                     ) { screen ->
                         when (screen) {
-                            Screen.SignInUp -> SignInUpScreen(vm = vm)
+                            Screen.SignInUp -> SignInUpScreen(
+                                vm = vm,
+                                onGoogleSignInClick = {
+                                    launcher.launch(googleSignInClient.signInIntent)
+                                },
+                                googleSignInClient = googleSignInClient
+                            )
                             Screen.Home -> HomeScreen(vm = vm)
                             Screen.SelectNgo -> SelectNgoScreen(vm = vm)
-                            Screen.Profile -> ProfileScreen(vm = vm)
+                            Screen.Profile -> ProfileScreen(vm = vm, googleSignInClient = googleSignInClient)
                             Screen.Feed -> FeedScreen(vm = vm)
                             Screen.SocialMedia -> SocialMediaScreen(vm = vm)
                             Screen.AskAi -> AskAiScreen(vm = vm)

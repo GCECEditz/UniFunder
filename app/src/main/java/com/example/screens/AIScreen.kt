@@ -229,7 +229,7 @@ fun ChatBubble(msg: ChatMessage) {
                     .background(VintageGrape)
             ) {
                 Text(
-                    text = "SF",
+                    text = msg.initials,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     color = Color.White
