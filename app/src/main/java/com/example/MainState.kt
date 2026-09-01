@@ -1,7 +1,5 @@
 package com.example
 
-import androidx.compose.ui.graphics.Color
-
 enum class Screen {
     SignInUp,
     Home,
