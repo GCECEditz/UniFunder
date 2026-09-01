@@ -40,7 +40,7 @@ data class Budget(
     val name: String,
     val info: String,
     val details: String,
-    val items: List<String> = emptyList()
+    val sheetLink: String
 )
 
 

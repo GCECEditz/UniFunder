@@ -12,6 +12,9 @@ import androidx.compose.animation.Crossfade
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.services.drive.DriveScopes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,6 +51,7 @@ class MainActivity : ComponentActivity() {
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
+            .requestScopes(Scope(DriveScopes.DRIVE_METADATA_READONLY))
             .build()
         val googleSignInClient = GoogleSignIn.getClient(this, gso)
 
@@ -64,7 +68,13 @@ class MainActivity : ComponentActivity() {
                         account?.let { acc ->
                             vm.loggedInDisplayName = acc.displayName ?: acc.email?.substringBefore("@") ?: "User"
                             acc.email?.let { email ->
-                                vm.handleGoogleSignIn(email)
+                                val credential = GoogleAccountCredential.usingOAuth2(
+                                    this@MainActivity,
+                                    listOf(DriveScopes.DRIVE_METADATA_READONLY)
+                                )
+                                credential.selectedAccountName = email
+                                vm.googleCredential = credential
+                                vm.handleGoogleSignIn(email, acc)
                             } ?: run {
                                 vm.authError = "Google Account does not have an email address associated."
                             }

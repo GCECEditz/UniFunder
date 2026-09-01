@@ -1,5 +1,6 @@
 package com.example.screens
 
+import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -198,56 +199,27 @@ fun BudgetScreen(
                     onDismissRequest = { showCreateMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.budget_screen_create)) },
-                        onClick = {
-                            showCreateMenu = false
-                            vm.onCreateBudgetAlertIsActiveChange(true)
-                        }
-                    )
-                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.budget_screen_add_link)) },
                         onClick = {
                             showCreateMenu = false
-                            Toast.makeText(context, add_link_toast, Toast.LENGTH_SHORT).show()
+                            vm.onCreateBudgetAlertIsActiveChange(true)
+                            //Toast.makeText(context, add_link_toast, Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
             }
         }
 
-//        // Primary Action: Large central CREATE NEW BUDGET button (Malachite)
-//        Button(
-//            onClick = { vm.onCreateBudgetAlertIsActiveChange(true) },
-//            colors = ButtonDefaults.buttonColors(containerColor = Malachite),
-//            shape = RoundedCornerShape(10.dp),
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(horizontal = 20.dp, vertical = 15.dp)
-//                .height(54.dp)
-//                .testTag("create_budget_button")
-//        ) {
-//            Text(
-//                text = stringResource(R.string.budget_screen_create_title),
-//                fontFamily = GoogleSans,
-//                fontWeight = FontWeight.Bold,
-//                fontSize = 16.sp,
-//                color = Color.White
-//            )
-//        }
-
         // Dialog to create a new budget
         if (showCreateBudgetDialog) {
             val inputName by vm.budget_name.collectAsStateWithLifecycle()
             val inputDetails by vm.budget_description.collectAsStateWithLifecycle()
-            var inputItem by remember { mutableStateOf("") }
-            val inputItems = remember { mutableStateListOf<String>() }
+            val docLink by vm.sheets_link.collectAsStateWithLifecycle()
 
             AlertDialog(
                 onDismissRequest = {
-                    vm.onCreateBudgetAlertIsActiveChange(false)
-                    vm.onBudgetDescriptionChange("")
-                    vm.onBudgetNameChange("")
-                                   },
+                    reset_create_vars(vm)
+                },
                 title = { Text(stringResource(R.string.budget_screen_create_title), fontFamily = GoogleSans, color = PineBlue, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
@@ -266,53 +238,65 @@ fun BudgetScreen(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        Text(stringResource(R.string.budget_screen_create_budget_allocation), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = inputItem,
-                                onValueChange = { inputItem = it },
-                                placeholder = { Text(stringResource(R.string.budget_screen_create_budget_placeholder)) },
-                                modifier = Modifier.weight(1f)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            IconButton(onClick = {
-                                if (inputItem.isNotBlank()) {
-                                    inputItems.add(inputItem)
-                                    inputItem = ""
-                                }
-                            }) {
-                                Icon(Icons.Filled.Add, stringResource(R.string.content_desc_addItem), tint = PineBlue)
-                            }
-                        }
+                        OutlinedTextField(
+                            value = docLink,
+                            onValueChange = vm::onSheetLinkChange,
+                            label = { Text(stringResource(R.string.budget_screen_link)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                        Spacer(modifier = Modifier.height(5.dp))
-                        inputItems.forEach {
-                            Text("• $it", fontSize = 12.sp, color = VintageGrapeLight)
-                        }
+//                        Text(stringResource(R.string.budget_screen_create_budget_allocation), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+//                        Row(verticalAlignment = Alignment.CenterVertically) {
+//                            OutlinedTextField(
+//                                value = inputItem,
+//                                onValueChange = { inputItem = it },
+//                                placeholder = { Text(stringResource(R.string.budget_screen_create_budget_placeholder)) },
+//                                modifier = Modifier.weight(1f)
+//                            )
+//                            Spacer(modifier = Modifier.width(8.dp))
+//                            IconButton(onClick = {
+//                                if (inputItem.isNotBlank()) {
+//                                    inputItems.add(inputItem)
+//                                    inputItem = ""
+//                                }
+//                            }) {
+//                                Icon(Icons.Filled.Add, stringResource(R.string.content_desc_addItem), tint = PineBlue)
+//                            }
+//                        }
+//
+//                        Spacer(modifier = Modifier.height(5.dp))
+//                        inputItems.forEach {
+//                            Text("• $it", fontSize = 12.sp, color = VintageGrapeLight)
+//                        }
                     }
                 },
                 confirmButton = {
                     val create_toast = stringResource(R.string.budget_screen_create_toast)
+                    var isVerifying by remember { mutableStateOf(false) }
+
                     Button(
                         onClick = {
-                            if (inputName.isNotBlank()) {
-                                vm.createNewBudget(inputName, inputDetails, inputItems.toList())
-                                vm.onCreateBudgetAlertIsActiveChange(false)
-                                vm.onBudgetDescriptionChange("")
-                                vm.onBudgetNameChange("")
-                                Toast.makeText(context, create_toast, Toast.LENGTH_SHORT).show()
+                            isVerifying = true
+                            vm.verifySheetOwnership(docLink) { success, errorMessage ->
+                                isVerifying = false
+                                if (success) {
+                                    vm.createNewBudget(inputName, inputDetails, docLink)
+                                    reset_create_vars(vm)
+                                    Toast.makeText(context, create_toast, Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, errorMessage ?: "Ownership verification failed", Toast.LENGTH_LONG).show()
+                                }
                             }
                         },
+                        enabled = inputName.isNotBlank() && isValidUrl(docLink) && !isVerifying,
                         colors = ButtonDefaults.buttonColors(containerColor = Malachite)
                     ) {
-                        Text(stringResource(R.string.generic_create))
+                        Text(if (isVerifying) stringResource(R.string.generic_verifying) else stringResource(R.string.generic_create))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        vm.onCreateBudgetAlertIsActiveChange(false)
-                        vm.onBudgetDescriptionChange("")
-                        vm.onBudgetNameChange("")
+                        reset_create_vars(vm)
                     }) {
                         Text(stringResource(R.string.generic_cancel), color = PineBlue)
                     }
@@ -387,6 +371,17 @@ fun reset_rename_vars(vm: MainViewModel){
     vm.onBudgetDescriptionChange("")
     vm.onBudgetNameChange("")
     vm.onSelectedBudgetChange(null)
+}
+
+fun reset_create_vars(vm: MainViewModel){
+    vm.onCreateBudgetAlertIsActiveChange(false)
+    vm.onBudgetDescriptionChange("")
+    vm.onBudgetNameChange("")
+    vm.onSheetLinkChange("")
+}
+
+fun isValidUrl(url: String): Boolean {
+    return url.isNotBlank() && Patterns.WEB_URL.matcher(url).matches()
 }
 
 @Composable
@@ -494,29 +489,13 @@ fun BudgetRowItem(
                 fontSize = 13.sp,
                 color = Color.Black
             )
-            if (budget.items.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                budget.items.forEach { item ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 2.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Malachite)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = item,
-                            fontSize = 12.sp,
-                            fontFamily = GoogleSans,
-                            color = VintageGrapeLight
-                        )
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Link: ${budget.sheetLink}",
+                fontFamily = GoogleSans,
+                fontSize = 12.sp,
+                color = Malachite
+            )
         }
     }
 }

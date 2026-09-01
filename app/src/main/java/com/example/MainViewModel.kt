@@ -8,6 +8,12 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.api.client.extensions.android.http.AndroidHttp
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.json.gson.GsonFactory
+import com.google.api.services.drive.Drive
+import com.google.api.services.drive.DriveScopes
 import com.example.model.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -45,6 +52,8 @@ class MainViewModel : ViewModel() {
     var loggedInEmail by mutableStateOf("")
     var loggedInDisplayName by mutableStateOf("")
     var authError by mutableStateOf<String?>(null)
+    var googleAccount by mutableStateOf<GoogleSignInAccount?>(null)
+    var googleCredential by mutableStateOf<GoogleAccountCredential?>(null)
 
     val userInitials: String
         get() = if (loggedInDisplayName.isNotBlank()) {
@@ -194,27 +203,28 @@ class MainViewModel : ViewModel() {
         name = "HOUSING ASSISTANCE FUND",
         info = "Active: 2024. Next Review: July 1.",
         details = "Provides temporary housing support for displaced families under SDG 11 and 17 partnerships.",
-        items = listOf("Temporary Lodging Cost: $180.00", "Emergency Transport Card: $70.00", "Food Allowance: $100.00")
+        sheetLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUq1P1OE/edit"
         ),
         Budget(
             id = "budget_2",
             name = "COMMUNITY GARDEN PROJECT",
             info = "Active: 2024. Next Review: July 1.",
             details = "Promotes sustainable local farming on university grounds. Encourages student-NGO cooperation.",
-            items = listOf("Soil & Organic Fertilizer: $100.00", "Seedling Starters: $50.00", "Manual Gardening Set: $150.00", "Instructional Workshop: $50.00")
+            sheetLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUq1P1OE/edit"
         ),
         Budget(
             id = "budget_3",
             name = "EDUCATIONAL SCHOLARSHIP FUND",
             info = "Active: 2024. Next Review: July 1.",
             details = "Supports B40 Malaysian student book purchases, material copying, and transport subsidies.",
-            items = listOf("Malaysian textbook vouchers: $200.00", "University printing allowance: $50.00", "LRT student pass: $100.00")
+            sheetLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUq1P1OE/edit"
         )))
 
     private val _selected_budget = MutableStateFlow<Budget?>(null)
     private val _budget_search_query = MutableStateFlow<String>("")
     private val _budget_name = MutableStateFlow<String>("")
     private val _budget_description = MutableStateFlow<String>("")
+    private val _sheets_link = MutableStateFlow<String>("")
 
     private val _create_budget_alert_isActive = MutableStateFlow<Boolean>(false)
     private val _rename_budget_alert_isActive = MutableStateFlow<Boolean>(false)
@@ -226,6 +236,7 @@ class MainViewModel : ViewModel() {
     var budget_search_query = _budget_search_query.asStateFlow()
     var budget_name = _budget_name.asStateFlow()
     var budget_description = _budget_description.asStateFlow()
+    var sheets_link = _sheets_link.asStateFlow()
     var create_budget_alert_isActive = _create_budget_alert_isActive.asStateFlow()
     var rename_budget_alert_isActive = _rename_budget_alert_isActive.asStateFlow()
 
@@ -236,6 +247,7 @@ class MainViewModel : ViewModel() {
     fun onCreateBudgetAlertIsActiveChange(value: Boolean) { _create_budget_alert_isActive.value = value }
     fun onRenameBudgetAlertIsActiveChange(value: Boolean) { _rename_budget_alert_isActive.value = value }
     fun onSelectedBudgetChange(value: Budget?) { _selected_budget.value = value }
+    fun onSheetLinkChange(value: String) { _sheets_link.value = value}
 
     // Proposal Custom Form
     var proposalTitleInput by mutableStateOf("")
@@ -247,10 +259,11 @@ class MainViewModel : ViewModel() {
     // --- Actions ---
 
 
-    fun handleGoogleSignIn(email: String) {
+    fun handleGoogleSignIn(email: String, account: GoogleSignInAccount? = null) {
         authError = null
         if (email.endsWith(".edu.my", ignoreCase = true)) {
             loggedInEmail = email
+            googleAccount = account
             isLoggedIn = true
             navigateTo(Screen.Home)
         } else {
@@ -344,13 +357,13 @@ class MainViewModel : ViewModel() {
     }
 
     // Budget Operations
-    fun createNewBudget(name: String, details: String, items: List<String>) {
+    fun createNewBudget(name: String, details: String, sheetLink: String) {
         val newBudget = Budget(
             id = "budget_${UUID.randomUUID()}",
             name = name.uppercase(),
             info = "", //info = "Active: 2026. Next Review: July 1.",
             details = details,
-            items = items
+            sheetLink = sheetLink
         )
         _budgets.update { budgets -> budgets + newBudget }
         //budgets.add(newBudget)
@@ -374,6 +387,60 @@ class MainViewModel : ViewModel() {
             //_budgets.value[idx] = old.copy(name = newName.uppercase())
             feedItems.add(0, "RENAMED BUDGET: ${old.name} TO ${newName.uppercase()}")
         }
+    }
+
+    fun verifySheetOwnership(url: String, onResult: (Boolean, String?) -> Unit) {
+        val fileId = extractFileIdFromUrl(url)
+        if (fileId == null) {
+            onResult(false, "Invalid Google Sheets URL format.")
+            return
+        }
+
+        val credential = googleCredential
+        if (credential == null) {
+            onResult(false, "Google Drive permission not granted.")
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val driveService = Drive.Builder(
+                    AndroidHttp.newCompatibleTransport(),
+                    GsonFactory.getDefaultInstance(),
+                    credential
+                ).setApplicationName("UniFunder").build()
+
+                val file = driveService.files().get(fileId)
+                    .setFields("owners(emailAddress)")
+                    .execute()
+
+                val ownerEmail = file.owners?.firstOrNull()?.emailAddress
+                val isOwner = ownerEmail?.trim()?.equals(loggedInEmail.trim(), ignoreCase = true) == true
+
+                withContext(Dispatchers.Main) {
+                    if (isOwner) {
+                        onResult(true, null)
+                    } else {
+                        onResult(false, "Ownership mismatch. Logged in as: $loggedInEmail. Owner: $ownerEmail")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Drive API error", e)
+                val message = when {
+                    e.message?.contains("403") == true -> "403 Forbidden: Ensure Google Drive API is enabled in Cloud Console and the permission checkbox was checked during sign-in."
+                    e.message?.contains("404") == true -> "404 Not Found: The file ID does not exist or you don't have access."
+                    else -> "Error verifying ownership: ${e.localizedMessage}"
+                }
+                withContext(Dispatchers.Main) {
+                    onResult(false, message)
+                }
+            }
+        }
+    }
+
+    private fun extractFileIdFromUrl(url: String): String? {
+        val pattern = "/spreadsheets/d/([a-zA-Z0-9-_]+)".toRegex()
+        return pattern.find(url)?.groupValues?.get(1)
     }
 
     // AI Chat Operations

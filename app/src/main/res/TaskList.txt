@@ -1,6 +1,4 @@
 TODO: Implement database
-TODO: allow user to switch between light and dark mode
-TODO: implement ai to analyze sheets
 TODO: integrate budget screen with google sheets
 TODO: allow ai to save messages using database
 
@@ -10,4 +8,6 @@ TODO("Remove export option?")
 TODO("Allow the app to create a new google sheets file upon creation")
 
 TODO("Remember last login")
+TODO: allow user to switch between light and dark mode
+TODO: implement ai to analyze sheets
 

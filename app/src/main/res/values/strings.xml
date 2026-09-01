@@ -16,6 +16,7 @@
     <string name="budget_screen_create_title">Create New Budget</string>
     <string name="budget_screen_rename_title">Rename Budget</string>
     <string name="budget_screen_add_link">Add Link"</string>
+    <string name="budget_screen_link">Sheets Link"</string>
     <string name="budget_screen_add_link_toast">Integrating Google Sheets link…</string>
     <string name="budget_screen_create_budget_name">Budget Name</string>
     <string name="budget_screen_create_budget_description">Brief Description</string>
@@ -33,6 +34,7 @@
     <string name="generic_create">Create</string>
     <string name="generic_rename">Rename</string>
     <string name="generic_cancel">Cancel</string>
+    <string name="generic_verifying">Verifying…</string>
 
     <!-- Content Desc StrRes -->
     <string name="content_desc_search">Search</string>
