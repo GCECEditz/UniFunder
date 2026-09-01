@@ -9,5 +9,7 @@ data class GoogleSheetObject(
     @SerialName("created_at")
     val createdAt: String? = null,
     val name: String = "",
-    val description: String? = ""
+    val description: String? = "",
+    @SerialName("sheet_url")
+    val sheetUrl: String = ""
 )

@@ -1,6 +1,3 @@
-TODO: Implement database
-
-TODO("Remove export option?")
 
 TODO("Remember last login")
 TODO: allow user to switch between light and dark mode

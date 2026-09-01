@@ -82,6 +82,11 @@ fun BudgetScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Fetch budgets from Supabase on launch
+    androidx.compose.runtime.LaunchedEffect(vm.loggedInEmail) {
+        vm.fetchUserBudgetsFromSupabase()
+    }
+
     val searchQuery by vm.budget_search_query.collectAsStateWithLifecycle()
 
     val budgets by vm.budgets.collectAsStateWithLifecycle()
@@ -270,15 +275,14 @@ fun BudgetScreen(
                                     // Local update
                                     vm.createNewBudget(inputName, inputDetails, docLink)
                                     
-                                    // Supabase update example using rememberCoroutineScope and scope.launch
+                                    // Supabase update: Create sheet record AND user association
                                     scope.launch {
-                                        val supabaseSuccess = vm.insertGoogleSheet(
-                                            GoogleSheetObject(name = inputName, description = inputDetails)
-                                        )
+                                        val supabaseSuccess = vm.createAndAssociateSheet(inputName, inputDetails, docLink)
                                         if (supabaseSuccess) {
-                                            Log.d("BudgetScreen", "Sheet saved to Supabase")
+                                            Log.d("BudgetScreen", "Sheet and Association saved to Supabase")
+                                            vm.fetchUserBudgetsFromSupabase() // Refresh list
                                         } else {
-                                            Log.e("BudgetScreen", "Supabase error")
+                                            Log.e("BudgetScreen", "Supabase link failed")
                                         }
                                     }
 
@@ -343,7 +347,10 @@ fun BudgetScreen(
                         Button(
                             onClick = {
                                 if (renameName.isNotBlank()) {
-                                    vm.renameBudget(selectedBudget.id, renameName, renameDetails)
+                                    scope.launch {
+                                        vm.renameBudget(selectedBudget.id, renameName, renameDetails)
+                                        vm.fetchUserBudgetsFromSupabase() // Refresh list
+                                    }
                                     reset_rename_vars(vm)
                                     Toast.makeText(context, rename_toast, Toast.LENGTH_SHORT).show()
                                 }
@@ -377,7 +384,10 @@ fun BudgetScreen(
                     confirmButton = {
                         Button(
                             onClick = {
-                                vm.deleteBudget(budget.id)
+                                scope.launch {
+                                    vm.deleteBudget(budget.id)
+                                    vm.fetchUserBudgetsFromSupabase() // Refresh list
+                                }
                                 reset_delete_vars(vm)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Red)

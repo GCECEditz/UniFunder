@@ -201,28 +201,7 @@ class MainViewModel : ViewModel() {
 
     private val _activeBudgetDropdownId = MutableStateFlow<String?>(null)
 
-    private val _budgets = MutableStateFlow<List<Budget>>(listOf(
-        Budget(
-        id = "budget_1",
-        name = "HOUSING ASSISTANCE FUND",
-        info = "Active: 2024. Next Review: July 1.",
-        details = "Provides temporary housing support for displaced families under SDG 11 and 17 partnerships.",
-        sheetLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUq1P1OE/edit"
-        ),
-        Budget(
-            id = "budget_2",
-            name = "COMMUNITY GARDEN PROJECT",
-            info = "Active: 2024. Next Review: July 1.",
-            details = "Promotes sustainable local farming on university grounds. Encourages student-NGO cooperation.",
-            sheetLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUq1P1OE/edit"
-        ),
-        Budget(
-            id = "budget_3",
-            name = "EDUCATIONAL SCHOLARSHIP FUND",
-            info = "Active: 2024. Next Review: July 1.",
-            details = "Supports B40 Malaysian student book purchases, material copying, and transport subsidies.",
-            sheetLink = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUq1P1OE/edit"
-        )))
+    private val _budgets = MutableStateFlow<List<Budget>>(emptyList())
 
     private val _selected_budget = MutableStateFlow<Budget?>(null)
     private val _budget_search_query = MutableStateFlow<String>("")
@@ -377,21 +356,38 @@ class MainViewModel : ViewModel() {
         feedItems.add(0, "NEW BUDGET CREATED: ${name.uppercase()}")
     }
 
-    fun deleteBudget(id: String) {
+    suspend fun deleteBudget(id: String) {
         val b = _budgets.value.find { it.id == id }
-        if (b != null) {
+        val userEmail = loggedInEmail
+        if (b != null && userEmail.isNotBlank()) {
+            // If it's a Supabase record (numeric ID), delete both association and sheet
+            val longId = id.toLongOrNull()
+            if (longId != null) {
+                // 1. Delete the link between user and sheet
+                deleteAssociationBySheetId(longId, userEmail)
+                // 2. Delete the actual sheet record
+                deleteGoogleSheet(longId)
+            }
+            
             _budgets.update { budgets -> budgets - b}
-            //budgets.remove(b)
             feedItems.add(0, "DELETED BUDGET: ${b.name}")
         }
     }
 
-    fun renameBudget(id: String, newName: String, newDetails: String) {
+    suspend fun renameBudget(id: String, newName: String, newDetails: String) {
         val idx = _budgets.value.indexOfFirst { it.id == id }
         if (idx != -1) {
             val old = _budgets.value[idx]
+            
+            // If it's a Supabase record (numeric ID), update remote
+            val longId = id.toLongOrNull()
+            if (longId != null) {
+                updateGoogleSheet(
+                    GoogleSheetObject(id = longId, name = newName, description = newDetails)
+                )
+            }
+
             _budgets.update {it.toMutableList().apply{ this[idx] = old.copy(name = newName.uppercase(), details = newDetails) }}
-            //_budgets.value[idx] = old.copy(name = newName.uppercase())
             feedItems.add(0, "RENAMED BUDGET: ${old.name} TO ${newName.uppercase()}")
         }
     }
@@ -502,15 +498,15 @@ class MainViewModel : ViewModel() {
     // --- Supabase CRUD Operations ---
 
     // GoogleSheetObject CRUD
-    suspend fun insertGoogleSheet(sheet: GoogleSheetObject): Boolean = withContext(Dispatchers.IO) {
+    suspend fun insertGoogleSheet(sheet: GoogleSheetObject): GoogleSheetObject? = withContext(Dispatchers.IO) {
         try {
-            SupabaseClient.client.postgrest["GoogleSheetObject"].insert(sheet)
-            true
+            val response = SupabaseClient.client.postgrest["GoogleSheetObject"].insert(sheet) {
+                select() // Required to get the inserted record back
+            }
+            response.decodeSingle<GoogleSheetObject>()
         } catch (e: Exception) {
             Log.e("MainViewModel", "Supabase insert error", e)
-            false
-        } finally {
-            // Cleanup if needed
+            null
         }
     }
 
@@ -587,6 +583,76 @@ class MainViewModel : ViewModel() {
             true
         } catch (e: Exception) {
             Log.e("MainViewModel", "Supabase delete association error", e)
+            false
+        }
+    }
+
+    suspend fun deleteAssociationBySheetId(sheetId: Long, userId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["UserSheetAssociation"].delete {
+                filter {
+                    eq("sheet_id", sheetId)
+                    eq("user_id", userId)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase delete association by sheet error", e)
+            false
+        }
+    }
+
+    /**
+     * High-level operation to create a new sheet record and associate it with the current user.
+     */
+    suspend fun createAndAssociateSheet(name: String, description: String, sheetUrl: String): Boolean {
+        val userEmail = loggedInEmail
+        if (userEmail.isBlank()) return false
+
+        val newSheet = insertGoogleSheet(
+            GoogleSheetObject(name = name, description = description, sheetUrl = sheetUrl)
+        )
+        val sheetId = newSheet?.id ?: return false
+
+        return associateUserWithSheet(
+            UserSheetAssociation(userId = userEmail, sheetId = sheetId)
+        )
+    }
+
+    /**
+     * Fetches all budget sheets associated with the current user's email
+     * and updates the local _budgets state flow.
+     */
+    suspend fun fetchUserBudgetsFromSupabase(): Boolean = withContext(Dispatchers.IO) {
+        val userEmail = loggedInEmail
+        if (userEmail.isBlank()) return@withContext false
+
+        try {
+            // Fetch associations with the joined sheet data
+            val associations = SupabaseClient.client.postgrest["UserSheetAssociation"]
+                .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("*, GoogleSheetObject(*)")) {
+                    filter {
+                        eq("user_id", userEmail)
+                    }
+                }.decodeList<UserSheetAssociation>()
+
+            // Map database records to our UI Budget models
+            val fetchedBudgets = associations.mapNotNull { assoc ->
+                assoc.sheet?.let { s ->
+                    Budget(
+                        id = s.id.toString(),
+                        name = s.name,
+                        info = "Created: ${s.createdAt?.substringBefore("T") ?: ""}",
+                        details = s.description ?: "",
+                        sheetLink = s.sheetUrl
+                    )
+                }
+            }
+
+            _budgets.value = fetchedBudgets
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Error fetching user budgets", e)
             false
         }
     }

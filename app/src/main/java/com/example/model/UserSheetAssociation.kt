@@ -11,5 +11,7 @@ data class UserSheetAssociation(
     @SerialName("user_id")
     val userId: String,
     @SerialName("sheet_id")
-    val sheetId: Long
+    val sheetId: Long,
+    @SerialName("GoogleSheetObject")
+    val sheet: GoogleSheetObject? = null
 )
