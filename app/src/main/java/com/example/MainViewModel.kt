@@ -228,6 +228,7 @@ class MainViewModel : ViewModel() {
 
     private val _create_budget_alert_isActive = MutableStateFlow<Boolean>(false)
     private val _rename_budget_alert_isActive = MutableStateFlow<Boolean>(false)
+    private val _delete_budget_alert_isActive = MutableStateFlow<Boolean>(false)
 
 
     var selectedBudget = _selected_budget.asStateFlow()
@@ -239,6 +240,7 @@ class MainViewModel : ViewModel() {
     var sheets_link = _sheets_link.asStateFlow()
     var create_budget_alert_isActive = _create_budget_alert_isActive.asStateFlow()
     var rename_budget_alert_isActive = _rename_budget_alert_isActive.asStateFlow()
+    var delete_budget_alert_isActive = _delete_budget_alert_isActive.asStateFlow()
 
     fun onActiveBudgetDropdownIdChange(value: String?) { _activeBudgetDropdownId.value = value }
     fun onBudgetSearchQueryChange(value: String) { _budget_search_query.value = value }
@@ -246,6 +248,7 @@ class MainViewModel : ViewModel() {
     fun onBudgetDescriptionChange(value: String) { _budget_description.value = value }
     fun onCreateBudgetAlertIsActiveChange(value: Boolean) { _create_budget_alert_isActive.value = value }
     fun onRenameBudgetAlertIsActiveChange(value: Boolean) { _rename_budget_alert_isActive.value = value }
+    fun onDeleteBudgetAlertIsActiveChange(value: Boolean) { _delete_budget_alert_isActive.value = value }
     fun onSelectedBudgetChange(value: Budget?) { _selected_budget.value = value }
     fun onSheetLinkChange(value: String) { _sheets_link.value = value}
 

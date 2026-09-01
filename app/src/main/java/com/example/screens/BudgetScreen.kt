@@ -84,6 +84,7 @@ fun BudgetScreen(
 
     val showCreateBudgetDialog by vm.create_budget_alert_isActive.collectAsStateWithLifecycle()
     val showRenameBudgetDialog by vm.rename_budget_alert_isActive.collectAsStateWithLifecycle()
+    val showDeleteBudgetDialog by vm.delete_budget_alert_isActive.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -367,6 +368,38 @@ fun BudgetScreen(
                 )
             }
         }
+
+        // Dialog to confirm deletion
+        if (showDeleteBudgetDialog) {
+            val selectedBudget by vm.selectedBudget.collectAsStateWithLifecycle()
+            selectedBudget?.let { budget ->
+                AlertDialog(
+                    onDismissRequest = {
+                        reset_delete_vars(vm)
+                    },
+                    title = { Text(stringResource(R.string.budget_screen_delete_title), fontFamily = GoogleSans, color = PineBlue, fontWeight = FontWeight.Bold) },
+                    text = { Text(stringResource(R.string.budget_screen_delete_msg)) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                vm.deleteBudget(budget.id)
+                                reset_delete_vars(vm)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text(stringResource(R.string.generic_delete), color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            reset_delete_vars(vm)
+                        }) {
+                            Text(stringResource(R.string.generic_cancel), color = PineBlue)
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -375,6 +408,12 @@ fun reset_rename_vars(vm: MainViewModel){
     vm.onActiveBudgetDropdownIdChange(null)
     vm.onBudgetDescriptionChange("")
     vm.onBudgetNameChange("")
+    vm.onSelectedBudgetChange(null)
+}
+
+fun reset_delete_vars(vm: MainViewModel){
+    vm.onDeleteBudgetAlertIsActiveChange(false)
+    vm.onActiveBudgetDropdownIdChange(null)
     vm.onSelectedBudgetChange(null)
 }
 
@@ -485,7 +524,8 @@ fun BudgetRowItem(
                             text = { Text(stringResource(R.string.budget_screen_delete), color = Color.Red) },
                             onClick = {
                                 vm.onActiveBudgetDropdownIdChange(null)
-                                vm.deleteBudget(budget.id)
+                                vm.onSelectedBudgetChange(budget)
+                                vm.onDeleteBudgetAlertIsActiveChange(true)
                             }
                         )
                     }

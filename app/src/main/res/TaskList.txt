@@ -1,11 +1,7 @@
 TODO: Implement database
-TODO: integrate budget screen with google sheets
 TODO: allow ai to save messages using database
 
-TODO("Add delete confirmation screen, as well as option to only unlink sheet from the app or permanently delete from both sides when deleting budgets")
-TODO("During sharing, copy the link to clipboard and update the toast message to only say that")
 TODO("Remove export option?")
-TODO("Allow the app to create a new google sheets file upon creation")
 
 TODO("Remember last login")
 TODO: allow user to switch between light and dark mode

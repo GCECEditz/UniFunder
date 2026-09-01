@@ -8,6 +8,8 @@
     <string name="budget_screen_share">Share</string>
     <string name="budget_screen_rename">Rename</string>
     <string name="budget_screen_delete">Delete</string>
+    <string name="budget_screen_delete_title">Confirm Deletion</string>
+    <string name="budget_screen_delete_msg">Are you sure you want to remove this budget from the list? The sheet will still exist in your drive, but you will have to add it in this application again.</string>
     <string name="budget_screen_export_toast">Exporting %1$s to Google Sheets…</string>
     <string name="budget_screen_share_toast">Sharing budget template with university board…</string>
     <string name="budget_screen_rename_toast">Budget Renamed!</string>
@@ -35,6 +37,7 @@
     <string name="generic_create">Create</string>
     <string name="generic_rename">Rename</string>
     <string name="generic_cancel">Cancel</string>
+    <string name="generic_delete">Delete</string>
     <string name="generic_verifying">Verifying…</string>
 
     <!-- Content Desc StrRes -->
