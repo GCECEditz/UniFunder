@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -48,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,12 +65,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.Budget
 import com.example.MainViewModel
 import com.example.R
+import com.example.model.GoogleSheetObject
 import com.example.Screen
 import com.example.ui.theme.LilacAsh
 import com.example.ui.theme.Malachite
 import com.example.ui.theme.PineBlue
 import com.example.ui.theme.VintageGrapeLight
 import kotlinx.coroutines.flow.compose
+import kotlinx.coroutines.launch
 
 @Composable
 fun BudgetScreen(
@@ -76,6 +80,7 @@ fun BudgetScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val searchQuery by vm.budget_search_query.collectAsStateWithLifecycle()
 
@@ -250,30 +255,6 @@ fun BudgetScreen(
                             label = { Text(stringResource(R.string.budget_screen_link)) },
                             modifier = Modifier.fillMaxWidth()
                         )
-
-//                        Text(stringResource(R.string.budget_screen_create_budget_allocation), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            OutlinedTextField(
-//                                value = inputItem,
-//                                onValueChange = { inputItem = it },
-//                                placeholder = { Text(stringResource(R.string.budget_screen_create_budget_placeholder)) },
-//                                modifier = Modifier.weight(1f)
-//                            )
-//                            Spacer(modifier = Modifier.width(8.dp))
-//                            IconButton(onClick = {
-//                                if (inputItem.isNotBlank()) {
-//                                    inputItems.add(inputItem)
-//                                    inputItem = ""
-//                                }
-//                            }) {
-//                                Icon(Icons.Filled.Add, stringResource(R.string.content_desc_addItem), tint = PineBlue)
-//                            }
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(5.dp))
-//                        inputItems.forEach {
-//                            Text("• $it", fontSize = 12.sp, color = VintageGrapeLight)
-//                        }
                     }
                 },
                 confirmButton = {
@@ -286,7 +267,21 @@ fun BudgetScreen(
                             vm.verifySheetOwnership(docLink) { success, errorMessage ->
                                 isVerifying = false
                                 if (success) {
+                                    // Local update
                                     vm.createNewBudget(inputName, inputDetails, docLink)
+                                    
+                                    // Supabase update example using rememberCoroutineScope and scope.launch
+                                    scope.launch {
+                                        val supabaseSuccess = vm.insertGoogleSheet(
+                                            GoogleSheetObject(name = inputName, description = inputDetails)
+                                        )
+                                        if (supabaseSuccess) {
+                                            Log.d("BudgetScreen", "Sheet saved to Supabase")
+                                        } else {
+                                            Log.e("BudgetScreen", "Supabase error")
+                                        }
+                                    }
+
                                     reset_create_vars(vm)
                                     Toast.makeText(context, create_toast, Toast.LENGTH_SHORT).show()
                                 } else {

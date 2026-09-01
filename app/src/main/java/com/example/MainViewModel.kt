@@ -15,6 +15,10 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.example.model.ChatMessage
+import com.example.model.GoogleSheetObject
+import com.example.model.UserSheetAssociation
+import com.example.SupabaseClient
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -493,5 +497,97 @@ class MainViewModel : ViewModel() {
         // Simulate a new donor from social media!
         fundsRaised += 50.0
         donorsReached += 1
+    }
+
+    // --- Supabase CRUD Operations ---
+
+    // GoogleSheetObject CRUD
+    suspend fun insertGoogleSheet(sheet: GoogleSheetObject): Boolean = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["GoogleSheetObject"].insert(sheet)
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase insert error", e)
+            false
+        } finally {
+            // Cleanup if needed
+        }
+    }
+
+    suspend fun fetchGoogleSheets(): List<GoogleSheetObject>? = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["GoogleSheetObject"]
+                .select().decodeList<GoogleSheetObject>()
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase fetch error", e)
+            null
+        }
+    }
+
+    suspend fun updateGoogleSheet(sheet: GoogleSheetObject): Boolean = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["GoogleSheetObject"].update(sheet) {
+                filter {
+                    eq("id", sheet.id ?: 0L)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase update error", e)
+            false
+        }
+    }
+
+    suspend fun deleteGoogleSheet(id: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["GoogleSheetObject"].delete {
+                filter {
+                    eq("id", id)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase delete error", e)
+            false
+        }
+    }
+
+    // UserSheetAssociation CRUD
+    suspend fun associateUserWithSheet(association: UserSheetAssociation): Boolean = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["UserSheetAssociation"].insert(association)
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase association error", e)
+            false
+        }
+    }
+
+    suspend fun fetchUserAssociations(userId: String): List<UserSheetAssociation>? = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["UserSheetAssociation"]
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }.decodeList<UserSheetAssociation>()
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase fetch associations error", e)
+            null
+        }
+    }
+
+    suspend fun deleteAssociation(id: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.postgrest["UserSheetAssociation"].delete {
+                filter {
+                    eq("id", id)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Supabase delete association error", e)
+            false
+        }
     }
 }

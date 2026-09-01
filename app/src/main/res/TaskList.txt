@@ -1,9 +1,10 @@
 TODO: Implement database
-TODO: allow ai to save messages using database
 
 TODO("Remove export option?")
 
 TODO("Remember last login")
 TODO: allow user to switch between light and dark mode
 TODO: implement ai to analyze sheets
+TODO: allow ai to save messages using database
+
 
