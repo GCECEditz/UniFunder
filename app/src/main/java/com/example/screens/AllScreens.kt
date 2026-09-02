@@ -67,6 +67,11 @@ import com.example.ui.theme.VintageGrapeLight
 import com.example.ui.theme.PineBlue
 import java.util.Locale
 import java.util.Random
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.MultiFormatWriter
 
 // --- Custom Font Definition (Google Sans Style / Sans-Serif Default) ---
 val GoogleSans = FontFamily.SansSerif
@@ -1339,187 +1344,772 @@ fun SocialMediaScreen(
 // ==========================================
 // 9. QR CODE SCREEN (Track progress)
 // ==========================================
+
+// ======================================================
+// GENERATE REAL QR CODE
+// ======================================================
+
+private fun generateQrBitmap(
+    content: String,
+    size: Int = 700
+): Bitmap? {
+
+    if (content.isBlank()) {
+        return null
+    }
+
+    return try {
+
+        val bitMatrix =
+            MultiFormatWriter().encode(
+                content,
+                BarcodeFormat.QR_CODE,
+                size,
+                size
+            )
+
+        Bitmap.createBitmap(
+            size,
+            size,
+            Bitmap.Config.RGB_565
+        ).apply {
+
+            for (x in 0 until size) {
+
+                for (y in 0 until size) {
+
+                    setPixel(
+                        x,
+                        y,
+                        if (bitMatrix[x, y]) {
+                            android.graphics.Color.BLACK
+                        } else {
+                            android.graphics.Color.WHITE
+                        }
+                    )
+                }
+            }
+        }
+
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// ======================================================
+// QR SCREEN
+// ======================================================
 @Composable
 fun QrCodeScreen(
     vm: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    // Controls NGO dropdown
+    var dropdownExpanded by remember {
+        mutableStateOf(false)
+    }
+    /*
+     * Every time:
+     *
+     * selected NGO changes
+     * OR
+     * logged-in user changes
+     *
+     * reload Supabase progress.
+     */
+    LaunchedEffect(
+        vm.selectedNgo.id,
+        vm.loggedInEmail
+    ) {
+
+        vm.loadFundraisingProgress(
+            vm.selectedNgo.id
+        )
+    }
+
+    // ==================================================
+    // CALCULATE PROGRESS
+    // ==================================================
+
+    val progressPercent =
+
+        if (vm.qrGoalAmount > 0.0) {
+            (
+                    vm.qrRaisedAmount /
+                            vm.qrGoalAmount
+                    )
+                .toFloat()
+                .coerceIn(
+                    0f,
+                    1f
+                )
+        } else {
+            0f
+        }
+
+    // ==================================================
+    // GENERATE QR FROM SUPABASE qr_content
+    // ==================================================
+
+    val qrBitmap = remember(
+        vm.qrContent
+    ) {
+        generateQrBitmap(
+            vm.qrContent
+        )
+    }
+
+    // ==================================================
+    // MAIN SCREEN
+    // ==================================================
+
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
-            .testTag("qr_code_screen")
+            .testTag("qr_code_screen"),
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+        contentPadding =
+            PaddingValues(
+                bottom = 32.dp
+            )
     ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 15.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { vm.navigateBack() }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = PineBlue
+
+        // ==================================================
+        // HEADER
+        // ==================================================
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 15.dp,
+                        vertical = 15.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        vm.navigateBack()
+                    }
+                ) {
+                    Icon(
+                        imageVector =
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription =
+                            "Back",
+                        tint =
+                            PineBlue
+                    )
+                }
+
+                Spacer(
+                    modifier =
+                        Modifier.width(10.dp)
+                )
+
+                Text(
+                    text =
+                        "TRACK PROGRESS & QR",
+
+                    fontFamily =
+                        GoogleSans,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    fontSize =
+                        20.sp,
+
+                    color =
+                        PineBlue
                 )
             }
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = "TRACK PROGRESS & QR",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                color = PineBlue
-            )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
 
-        // Center Title of targeted NGO
-        Text(
-            text = vm.selectedNgo.name,
-            fontFamily = GoogleSans,
-            fontWeight = FontWeight.Bold,
-            fontSize = 24.sp,
-            color = PineBlue,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-        )
-        Text(
-            text = "SDG 17: Partnerships for the Goals",
-            fontFamily = GoogleSans,
-            fontWeight = FontWeight.Medium,
-            fontSize = 14.sp,
-            color = VintageGrapeLight,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // ==================================================
+        // NGO DROPDOWN
+        // ==================================================
 
-        Spacer(modifier = Modifier.weight(0.1f))
+        item {
+            Text(
+                text =
+                    "Choose an NGO to support",
 
-        // Circular Logo Placeholder in the center
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
+                fontFamily =
+                    GoogleSans,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                fontSize =
+                    15.sp,
+
+                color =
+                    VintageGrape,
+
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 30.dp
+                        )
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(8.dp)
+            )
+
             Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(LilacAsh.copy(alpha = 0.2f))
-                    .border(1.dp, LilacAsh, CircleShape)
+
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 30.dp
+                        )
+
+            ) {
+
+                // Dropdown button
+                OutlinedButton(
+
+                    onClick = {
+
+                        dropdownExpanded =
+                            true
+
+                    },
+
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    shape =
+                        RoundedCornerShape(
+                            12.dp
+                        ),
+
+                    border =
+                        BorderStroke(
+                            1.dp,
+                            PineBlue
+                        )
+
+                ) {
+                    Text(
+
+                        text =
+                            vm.selectedNgo.name,
+
+                        color =
+                            PineBlue,
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        modifier =
+                            Modifier.weight(1f),
+
+                        textAlign =
+                            TextAlign.Start
+
+                    )
+                    Text(
+                        text = "▼",
+                        color = PineBlue
+                    )
+
+                }
+
+
+                // Actual dropdown
+                DropdownMenu(
+                    expanded =
+                        dropdownExpanded,
+                    onDismissRequest = {
+                        dropdownExpanded =
+                            false
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(
+                                0.85f
+                            )
+                            .background(
+                                Color.White
+                            )
+                ) {
+                    vm.ngos.forEach { ngo ->
+                        DropdownMenuItem(
+                            text = {
+
+                                Text(
+
+                                    text =
+                                        ngo.name,
+
+                                    fontWeight =
+
+                                        if (
+                                            ngo.id ==
+                                            vm.selectedNgo.id
+                                        ) {
+
+                                            FontWeight.Bold
+
+                                        } else {
+
+                                            FontWeight.Normal
+
+                                        }
+                                )
+                            },
+                            onClick = {
+                                dropdownExpanded =
+                                    false
+                                /*
+                                 * Change NGO
+                                 * +
+                                 * load Supabase data
+                                 */
+                                vm.selectNgoForQr(
+                                    ngo
+                                )
+
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(
+                modifier =
+                    Modifier.height(24.dp)
+            )
+
+            // ==================================================
+            // SELECTED NGO NAME
+            // ==================================================
+
+            Text(
+                text =
+                    vm.selectedNgo.name,
+
+                fontFamily =
+                    GoogleSans,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                fontSize =
+                    24.sp,
+
+                color =
+                    PineBlue,
+
+                textAlign =
+                    TextAlign.Center,
+
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 24.dp
+                        )
+            )
+            Text(
+                text =
+                    "SDG 17: Partnerships for the Goals",
+
+                fontFamily =
+                    GoogleSans,
+
+                fontWeight =
+                    FontWeight.Medium,
+
+                fontSize =
+                    14.sp,
+
+                color =
+                    VintageGrapeLight,
+
+                textAlign =
+                    TextAlign.Center,
+
+                modifier =
+                    Modifier.fillMaxWidth()
+            )
+            Spacer(
+                modifier =
+                    Modifier.height(20.dp)
+            )
+
+
+            // ==================================================
+            // NGO INITIAL LOGO
+            // ==================================================
+
+            Box(
+                contentAlignment =
+                    Alignment.Center,
+                modifier =
+                    Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(
+                            LilacAsh.copy(
+                                alpha = 0.2f
+                            )
+                        )
+                        .border(
+                            1.dp,
+                            LilacAsh,
+                            CircleShape
+                        )
             ) {
                 Text(
-                    text = vm.selectedNgo.initials,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 26.sp,
-                    color = VintageGrape
+                    text =
+                        vm.selectedNgo.initials,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    fontSize =
+                        26.sp,
+
+                    color =
+                        VintageGrape
                 )
             }
+            Spacer(
+                modifier =
+                    Modifier.height(20.dp)
+            )
+
         }
 
-        Spacer(modifier = Modifier.weight(0.1f))
 
-        // Large stylized custom QR Code using DrawBehind or simple Canvas
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 40.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(
-                modifier = Modifier
-                    .size(200.dp)
-                    .border(2.dp, PineBlue, RoundedCornerShape(12.dp))
-                    .padding(16.dp)
+        // ==================================================
+        // QR CODE
+        // ==================================================
+
+        item {
+            Card(
+                modifier =
+                    Modifier.size(
+                        230.dp
+                    ),
+                shape =
+                    RoundedCornerShape(
+                        16.dp
+                    ),
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor =
+                            Color.White
+                    ),
+                border =
+                    BorderStroke(
+                        2.dp,
+                        PineBlue
+                    )
             ) {
-                // Drawing custom conceptual QR code patterns
-                val numGrid = 15
-                val cellW = size.width / numGrid
-                val cellH = size.height / numGrid
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(
+                                14.dp
+                            ),
+                    contentAlignment =
+                        Alignment.Center
+                ) {
+                    when {
+                        // Loading Supabase
+                        vm.qrIsLoading -> {
 
-                // Draw three big corner squares
-                drawRect(color = PineBlue, topLeft = Offset(0f, 0f), size = Size(cellW * 4, cellH * 4), style = Stroke(width = 8f))
-                drawRect(color = PineBlue, topLeft = Offset(cellW * 1, cellH * 1), size = Size(cellW * 2, cellH * 2))
+                            CircularProgressIndicator(
+                                color =
+                                    PineBlue
+                            )
+                        }
+                        // QR available
+                        qrBitmap != null -> {
 
-                drawRect(color = PineBlue, topLeft = Offset(size.width - cellW * 4, 0f), size = Size(cellW * 4, cellH * 4), style = Stroke(width = 8f))
-                drawRect(color = PineBlue, topLeft = Offset(size.width - cellW * 3, cellH * 1), size = Size(cellW * 2, cellH * 2))
+                            Image(
 
-                drawRect(color = PineBlue, topLeft = Offset(0f, size.height - cellH * 4), size = Size(cellW * 4, cellH * 4), style = Stroke(width = 8f))
-                drawRect(color = PineBlue, topLeft = Offset(cellW * 1, size.height - cellH * 3), size = Size(cellW * 2, cellH * 2))
+                                bitmap =
+                                    qrBitmap
+                                        .asImageBitmap(),
 
-                // Random dots inside QR
-                val seed = vm.selectedNgo.name.hashCode()
-                val random = Random(seed.toLong())
-                for (row in 0 until numGrid) {
-                    for (col in 0 until numGrid) {
-                        // Skip corners
-                        if (row < 4 && col < 4) continue
-                        if (row < 4 && col >= numGrid - 4) continue
-                        if (row >= numGrid - 4 && col < 4) continue
-                        
-                        if (random.nextBoolean()) {
-                            drawRect(
-                                color = if (random.nextInt(3) == 0) VintageGrape else PineBlue,
-                                topLeft = Offset(col * cellW, row * cellH),
-                                size = Size(cellW * 0.8f, cellH * 0.8f)
+                                contentDescription =
+                                    "Donation QR for ${vm.selectedNgo.name}",
+
+                                modifier =
+                                    Modifier.fillMaxSize()
+
+                            )
+                        }
+                        // Error
+                        else -> {
+
+                            Text(
+
+                                text =
+                                    "QR not available",
+
+                                color =
+                                    VintageGrape,
+
+                                textAlign =
+                                    TextAlign.Center
                             )
                         }
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.weight(0.1f))
-
-        // Linear Progress bar tracking funds progress
-        val progressPercent = (vm.fundsRaised / vm.fundsGoal).toFloat().coerceIn(0f, 1f)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 30.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            LinearProgressIndicator(
-                progress = { progressPercent },
-                color = Malachite,
-                trackColor = LilacAsh.copy(alpha = 0.3f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(8.dp))
+            Spacer(
+                modifier =
+                    Modifier.height(10.dp)
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
-                text = "${(progressPercent * 100).toInt()}% RAISED ($${String.format("%.2f", vm.fundsRaised)} / $${String.format("%.2f", vm.fundsGoal)} Goal)",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = PineBlue
+                text =
+                    "Scan to support ${vm.selectedNgo.name}",
+
+                color =
+                    VintageGrapeLight,
+
+                fontSize =
+                    13.sp,
+
+                textAlign =
+                    TextAlign.Center,
+
+                modifier =
+                    Modifier.padding(
+                        horizontal = 24.dp
+                    )
+            )
+            Spacer(
+                modifier =
+                    Modifier.height(28.dp)
             )
         }
 
-        Spacer(modifier = Modifier.weight(0.1f))
+        // ==================================================
+        // PROGRESS BAR
+        // ==================================================
 
-        // Thank you label
-        Text(
-            text = "\" thank for help in supporting our partnership \"",
-            fontFamily = GoogleSans,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            color = VintageGrapeLight,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-        )
+        item {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = 30.dp
+                        ),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text =
+                        "DONATION PROGRESS",
 
-        Spacer(modifier = Modifier.weight(0.2f))
+                    fontFamily =
+                        GoogleSans,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    fontSize =
+                        16.sp,
+
+                    color =
+                        PineBlue
+                )
+                Spacer(
+                    modifier =
+                        Modifier.height(12.dp)
+                )
+
+                // ==================================================
+                // PROGRESS BAR
+                // ==================================================
+
+                LinearProgressIndicator(
+                    progress = {
+                        progressPercent
+                    },
+                    color =
+                        Malachite,
+                    trackColor =
+                        LilacAsh.copy(
+                            alpha = 0.3f
+                        ),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(
+                                16.dp
+                            )
+                            .clip(
+                                RoundedCornerShape(
+                                    8.dp
+                                )
+                            )
+                )
+                Spacer(
+                    modifier =
+                        Modifier.height(10.dp)
+                )
+                Text(
+                    text =
+                        "${(progressPercent * 100).toInt()}% RAISED",
+
+                    fontFamily =
+                        GoogleSans,
+
+                    fontWeight =
+                        FontWeight.Bold,
+
+                    fontSize =
+                        18.sp,
+
+                    color =
+                        PineBlue
+                )
+
+                // ==================================================
+                // TOTAL NGO PROGRESS
+                // ==================================================
+
+                Text(
+                    text =
+                        "RM ${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                vm.qrRaisedAmount
+                            )
+                        } / RM ${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                vm.qrGoalAmount
+                            )
+                        } Goal",
+                    fontFamily =
+                        GoogleSans,
+                    fontWeight =
+                        FontWeight.Medium,
+                    fontSize =
+                        14.sp,
+                    color =
+                        VintageGrape
+                )
+                Spacer(
+                    modifier =
+                        Modifier.height(10.dp)
+                )
+
+                // ==================================================
+                // CURRENT USER'S DONATION
+                // ==================================================
+
+                Text(
+                    text =
+                        "Your contribution: RM ${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                vm.qrMyDonation
+                            )
+                        }",
+                    fontFamily =
+                        GoogleSans,
+                    fontWeight =
+                        FontWeight.Bold,
+                    fontSize =
+                        14.sp,
+                    color =
+                        Malachite
+                )
+                Spacer(
+                    modifier =
+                        Modifier.height(14.dp)
+                )
+
+                // ==================================================
+                // REFRESH BUTTON
+                // ==================================================
+
+                OutlinedButton(
+                    onClick = {
+                        vm.loadFundraisingProgress(
+                            vm.selectedNgo.id
+                        )
+                    },
+                    enabled =
+                        !vm.qrIsLoading
+                ) {
+                    Text(
+                        if (vm.qrIsLoading) {
+                            "Loading..."
+                        } else {
+                            "Refresh Progress"
+                        }
+                    )
+                }
+
+                // ==================================================
+                // ERROR
+                // ==================================================
+
+                vm.qrError?.let { message ->
+                    Spacer(
+                        modifier =
+                            Modifier.height(
+                                10.dp
+                            )
+                    )
+                    Text(
+                        text =
+                            message,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .error,
+                        fontSize =
+                            12.sp,
+                        textAlign =
+                            TextAlign.Center
+                    )
+                }
+
+                Spacer(
+                    modifier =
+                        Modifier.height(24.dp)
+                )
+
+                Text(
+                    text =
+                        "Thank you for supporting our partnership.",
+                    fontFamily =
+                        GoogleSans,
+                    fontWeight =
+                        FontWeight.Bold,
+                    fontSize =
+                        14.sp,
+                    color =
+                        VintageGrapeLight,
+                    textAlign =
+                        TextAlign.Center
+                )
+            }
+        }
     }
 }

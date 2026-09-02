@@ -28,6 +28,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
+import com.example.model.FundraisingProgress
 
 class MainViewModel : ViewModel() {
 
@@ -127,6 +128,220 @@ class MainViewModel : ViewModel() {
     )
 
     var selectedNgo by mutableStateOf<Ngo>(ngos.first())
+
+    // QR / FUNDRAISING PROGRESS
+
+    // Total money raised by EVERY user for selected NGO
+    var qrRaisedAmount by mutableStateOf(0.0)
+        private set
+
+    // Fundraising target
+    var qrGoalAmount by mutableStateOf(0.0)
+        private set
+
+    // Link / information encoded inside QR
+    var qrContent by mutableStateOf("")
+        private set
+
+    // Donation made by currently logged-in user
+    var qrMyDonation by mutableStateOf(0.0)
+        private set
+
+    // Loading state
+    var qrIsLoading by mutableStateOf(false)
+        private set
+
+    // Error message
+    var qrError by mutableStateOf<String?>(null)
+        private set
+
+
+    // Called when user selects another NGO from dropdown
+    fun selectNgoForQr(ngo: Ngo) {
+
+        selectedNgo = ngo
+
+        loadFundraisingProgress(ngo.id)
+    }
+
+    private fun setDefaultQrProgress(ngoId: String) {
+
+        when (ngoId) {
+
+            "mt_miriam" -> {
+                qrRaisedAmount = 350.0
+                qrGoalAmount = 500.0
+                qrContent = "https://mountmiriam.com"
+            }
+
+            "habitat" -> {
+                qrRaisedAmount = 225.0
+                qrGoalAmount = 500.0
+                qrContent = "https://habitatfoundation.org.my"
+            }
+
+            "kawan" -> {
+                qrRaisedAmount = 150.0
+                qrGoalAmount = 500.0
+                qrContent = "https://www.ywampenang.org"
+            }
+
+            "st_nicholas" -> {
+                qrRaisedAmount = 400.0
+                qrGoalAmount = 500.0
+                qrContent = "https://www.stnicholashome.org.my"
+            }
+
+            "wcc" -> {
+                qrRaisedAmount = 275.0
+                qrGoalAmount = 500.0
+                qrContent = "https://www.wccpenang.org"
+            }
+
+            else -> {
+                qrRaisedAmount = 0.0
+                qrGoalAmount = 500.0
+                qrContent = selectedNgo.website
+            }
+        }
+    }
+
+
+    // Read FundraisingProgress table from Supabase
+    fun loadFundraisingProgress(
+        ngoId: String = selectedNgo.id
+    ) {
+
+        viewModelScope.launch {
+
+            qrIsLoading = true
+            qrError = null
+
+            try {
+
+                // Get every FundraisingProgress row belonging to this NGO
+                val records = withContext(Dispatchers.IO) {
+
+                    SupabaseClient.client
+                        .postgrest["FundraisingProgress"]
+                        .select {
+
+                            filter {
+                                eq("ngo_id", ngoId)
+                            }
+
+                        }
+                        .decodeList<FundraisingProgress>()
+                }
+
+                // NO DATA FOUND
+
+                if (records.isEmpty()) {
+
+                    setDefaultQrProgress(ngoId)
+
+                    qrMyDonation = 0.0
+
+                    qrError = null
+                }
+
+                // DATA FOUND
+
+                else {
+
+                     // user A -> Mount Miriam -> RM20
+                     // user B -> Mount Miriam -> RM50
+                     // user C -> Mount Miriam -> RM30
+                     // Total NGO progress:
+                     // RM20 + RM50 + RM30 = RM100
+
+                    qrRaisedAmount =
+                        records.sumOf {
+                            it.raised_amount
+                        }
+
+
+                    /*
+                     * goal_amount belongs to the NGO.
+                     *
+                     * We take the first valid goal stored for this NGO.
+                     */
+                    qrGoalAmount =
+                        records
+                            .firstOrNull {
+                                it.goal_amount > 0.0
+                            }
+                            ?.goal_amount
+                            ?: records.first().goal_amount
+
+
+                    /*
+                     * Get QR content for selected NGO.
+                     */
+                    qrContent =
+                        records
+                            .firstOrNull {
+                                it.qr_content.isNotBlank()
+                            }
+                            ?.qr_content
+                            ?: selectedNgo.website
+
+                    val currentUserId =
+                        loggedInEmail.trim()
+
+
+
+                    // Calculate only CURRENT user's donation.
+
+                    qrMyDonation =
+
+                        if (currentUserId.isBlank()) {
+
+                            0.0
+
+                        } else {
+
+                            records
+                                .filter {
+
+                                    it.user_id.equals(
+                                        currentUserId,
+                                        ignoreCase = true
+                                    )
+
+                                }
+                                .sumOf {
+
+                                    it.raised_amount
+
+                                }
+                        }
+                }
+
+            }
+
+            catch (e: Exception) {
+
+                Log.e(
+                    "MainViewModel",
+                    "Failed to load fundraising progress",
+                    e
+                )
+
+                setDefaultQrProgress(ngoId)
+
+                qrMyDonation = 0.0
+
+                qrError = "Demo data displayed - Supabase unavailable."
+            }
+
+            finally {
+
+                qrIsLoading = false
+
+            }
+        }
+    }
 
     // Active dropdowns
     var activeProposalNgoId by mutableStateOf<String?>(null)
