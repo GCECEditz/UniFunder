@@ -1,7 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-permission
+        android:name="android.permission.INTERNET" />
+
+
+    <!-- ================================================= -->
+    <!-- SOCIAL MEDIA PACKAGE VISIBILITY                   -->
+    <!-- ================================================= -->
+
+    <queries>
+
+        <!-- TikTok -->
+        <package
+            android:name="com.zhiliaoapp.musically" />
+
+        <package
+            android:name="com.ss.android.ugc.trill" />
+
+
+        <!-- Instagram -->
+        <package
+            android:name="com.instagram.android" />
+
+
+        <!-- Facebook -->
+        <package
+            android:name="com.facebook.katana" />
+
+
+        <!-- REDnote -->
+        <package
+            android:name="com.xingin.xhs" />
+
+    </queries>
+
 
     <application
         android:allowBackup="true"
@@ -12,18 +48,29 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.MyApplication"
             android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
+
+            <intent-filter>
+
+                <action
+                    android:name="android.intent.action.MAIN" />
+
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
+
             </intent-filter>
+
+
         </activity>
+
     </application>
 
 </manifest>

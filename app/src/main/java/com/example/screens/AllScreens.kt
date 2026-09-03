@@ -1,7 +1,14 @@
 package com.example.screens
 
+import androidx.compose.ui.layout.ContentScale
+import com.example.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -196,44 +203,18 @@ fun UniFunderLogo(modifier: Modifier = Modifier, size: Int = 80) {
         contentAlignment = Alignment.Center,
         modifier = modifier.size(size.dp)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val width = size.toDp().toPx()
-            val height = size.toDp().toPx()
-
-            // Drawing the heart shape held by hands represented conceptually
-            val mainGradient = Brush.linearGradient(
-                colors = listOf(Malachite, PineBlue, VintageGrape),
-                start = Offset(0f, 0f),
-                end = Offset(width, height)
-            )
-
-            // Outer ring
-            drawCircle(
-                brush = mainGradient,
-                radius = width / 2f,
-                style = Stroke(width = 6f)
-            )
-
-            // Heart outline inside
-            val path = Path().apply {
-                moveTo(width / 2f, height * 0.75f)
-                cubicTo(width * 0.15f, height * 0.5f, width * 0.1f, height * 0.25f, width * 0.45f, height * 0.25f)
-                cubicTo(width / 2f, height * 0.25f, width / 2f, height * 0.35f, width / 2f, height * 0.35f)
-                cubicTo(width / 2f, height * 0.35f, width / 2f, height * 0.25f, width * 0.55f, height * 0.25f)
-                cubicTo(width * 0.9f, height * 0.25f, width * 0.85f, height * 0.5f, width / 2f, height * 0.75f)
-                close()
-            }
-            drawPath(path = path, brush = mainGradient)
-
-            // Top Dot (representing unity / person)
-            drawCircle(
-                color = VintageGrape,
-                radius = width * 0.08f,
-                center = Offset(width / 2f, height * 0.15f)
-            )
+        Image(
+            painter = painterResource(
+                id = R.drawable.unifunder_logo
+            ),
+            contentDescription = "UniFunder Logo",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .size(180.dp)
+        )
         }
     }
-}
+
 
 // ==========================================
 // 1. HOME SCREEN
@@ -1177,15 +1158,309 @@ fun SignInUpScreen(
 // ==========================================
 // 6. SOCIAL MEDIA SCREEN
 // ==========================================
+
+// ==========================================
+// OPEN SOCIAL MEDIA CREATE POST
+// ==========================================
+private fun openSocialMediaCreatePost(
+    context: Context,
+    platform: String,
+    postText: String
+) {
+
+    when (platform) {
+
+        // ==========================================
+        // INSTAGRAM
+        // ==========================================
+        "INSTAGRAM" -> {
+
+            try {
+
+                // Try to open Instagram camera/create area
+                val instagramIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("instagram://camera")
+                )
+
+                instagramIntent.setPackage(
+                    "com.instagram.android"
+                )
+
+                context.startActivity(
+                    instagramIntent
+                )
+
+            } catch (e: Exception) {
+
+                try {
+
+                    // Fallback:
+                    // Open Instagram using Android sharing
+                    val shareIntent =
+                        Intent(Intent.ACTION_SEND).apply {
+
+                            type = "text/plain"
+
+                            putExtra(
+                                Intent.EXTRA_TEXT,
+                                postText
+                            )
+
+                            setPackage(
+                                "com.instagram.android"
+                            )
+                        }
+
+                    context.startActivity(
+                        shareIntent
+                    )
+
+                } catch (e: Exception) {
+
+                    // Instagram not installed
+                    openSocialMediaWebsite(
+                        context = context,
+                        website = "https://www.instagram.com/",
+                        platform = "Instagram"
+                    )
+                }
+            }
+        }
+
+
+        // ==========================================
+        // FACEBOOK
+        // ==========================================
+        "FACEBOOK" -> {
+
+            try {
+
+                // Facebook works better through
+                // Android ACTION_SEND for creating a post
+                val facebookIntent =
+                    Intent(Intent.ACTION_SEND).apply {
+
+                        type = "text/plain"
+
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            postText
+                        )
+
+                        setPackage(
+                            "com.facebook.katana"
+                        )
+                    }
+
+
+                context.startActivity(
+                    facebookIntent
+                )
+
+            } catch (e: Exception) {
+
+                // Facebook not installed
+                openSocialMediaWebsite(
+                    context = context,
+                    website = "https://www.facebook.com/",
+                    platform = "Facebook"
+                )
+            }
+        }
+
+
+        // ==========================================
+        // REDNOTE / XIAOHONGSHU
+        // ==========================================
+        "REDNOTE (小紅書)" -> {
+
+            try {
+
+                // Official Xiaohongshu publishing deep link
+                val redNoteIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(
+                        "xhsdiscover://post"
+                    )
+                )
+
+                redNoteIntent.setPackage(
+                    "com.xingin.xhs"
+                )
+
+                context.startActivity(
+                    redNoteIntent
+                )
+
+            } catch (e: Exception) {
+
+                try {
+
+                    // Fallback sharing method
+                    val shareIntent =
+                        Intent(Intent.ACTION_SEND).apply {
+
+                            type = "text/plain"
+
+                            putExtra(
+                                Intent.EXTRA_TEXT,
+                                postText
+                            )
+
+                            setPackage(
+                                "com.xingin.xhs"
+                            )
+                        }
+
+                    context.startActivity(
+                        shareIntent
+                    )
+
+                } catch (e: Exception) {
+
+                    // REDnote not installed
+                    openSocialMediaWebsite(
+                        context = context,
+                        website = "https://www.xiaohongshu.com/",
+                        platform = "REDnote"
+                    )
+                }
+            }
+        }
+
+
+        // ==========================================
+        // TIKTOK
+        // ==========================================
+        "TIKTOK" -> {
+
+            try {
+
+                // Main TikTok package
+                var launchIntent =
+                    context.packageManager
+                        .getLaunchIntentForPackage(
+                            "com.zhiliaoapp.musically"
+                        )
+
+
+                // Try alternative TikTok package
+                if (launchIntent == null) {
+
+                    launchIntent =
+                        context.packageManager
+                            .getLaunchIntentForPackage(
+                                "com.ss.android.ugc.trill"
+                            )
+                }
+
+
+                // TikTok found
+                if (launchIntent != null) {
+
+                    launchIntent.addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK
+                    )
+
+                    context.startActivity(
+                        launchIntent
+                    )
+
+                } else {
+
+                    Toast.makeText(
+                        context,
+                        "TikTok app cannot be detected.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+            } catch (e: Exception) {
+
+                Toast.makeText(
+                    context,
+                    "Unable to open TikTok.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+
+
+
+
+        // ==========================================
+        // UNKNOWN PLATFORM
+        // ==========================================
+        else -> {
+
+            Toast.makeText(
+                context,
+                "Platform not supported",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+}
+
+
+// ==========================================
+// OPEN WEBSITE IF APP IS NOT INSTALLED
+// ==========================================
+private fun openSocialMediaWebsite(
+    context: Context,
+    website: String,
+    platform: String
+) {
+
+    try {
+
+        val websiteIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(website)
+        )
+
+        context.startActivity(
+            websiteIntent
+        )
+
+
+        Toast.makeText(
+            context,
+            "$platform app not installed. Opening website.",
+            Toast.LENGTH_SHORT
+        ).show()
+
+    } catch (e: Exception) {
+
+        Toast.makeText(
+            context,
+            "Unable to open $platform",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
+
 @Composable
 fun SocialMediaScreen(
     vm: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var showPostDialog by remember { mutableStateOf(false) }
-    var selectedPlatform by remember { mutableStateOf("") }
-    var postText by remember { mutableStateOf("") }
+
+    val context =
+        LocalContext.current
+
+
+    // ==========================================
+    // DEFAULT POST MESSAGE
+    // ==========================================
+
+    val defaultPostText =
+        "Support ${vm.selectedNgo.name} in our TARUMT partnership! " +
+                "We are raising funds to support our NGO partnership under SDG 17: " +
+                "Partnerships for the Goals. Donate today with UniFunder!"
+
 
     Column(
         modifier = modifier
@@ -1193,143 +1468,436 @@ fun SocialMediaScreen(
             .background(Color.White)
             .testTag("social_media_screen")
     ) {
-        // Header
+
+
+        // ==========================================
+        // HEADER
+        // ==========================================
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 15.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(
+                    horizontal = 15.dp,
+                    vertical = 15.dp
+                ),
+
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
+
+
             Text(
                 text = "BACK",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = PineBlue,
-                modifier = Modifier
-                    .clickable { vm.navigateBack() }
-                    .padding(8.dp)
+
+                fontFamily =
+                    GoogleSans,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                fontSize =
+                    14.sp,
+
+                color =
+                    PineBlue,
+
+                modifier =
+                    Modifier
+                        .clickable {
+
+                            vm.navigateBack()
+                        }
+                        .padding(8.dp)
             )
-            Spacer(modifier = Modifier.weight(1f))
+
+
+            Spacer(
+                modifier =
+                    Modifier.weight(1f)
+            )
+
+
             Text(
-                text = "SOCIAL MEDIA",
-                fontFamily = GoogleSans,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                color = PineBlue
+                text =
+                    "SOCIAL MEDIA",
+
+                fontFamily =
+                    GoogleSans,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                fontSize =
+                    20.sp,
+
+                color =
+                    PineBlue
             )
-            Spacer(modifier = Modifier.weight(1f))
+
+
+            Spacer(
+                modifier =
+                    Modifier.weight(1f)
+            )
         }
 
-        HorizontalDivider(color = PineBlue, thickness = 2.dp, modifier = Modifier.padding(horizontal = 20.dp))
 
-        Spacer(modifier = Modifier.height(20.dp))
+        HorizontalDivider(
+            color =
+                PineBlue,
 
-        // Platform Cards List
-        val platforms = listOf("INSTAGRAM", "FACEBOOK", "REDNOTE (小紅書)", "TIKTOK")
+            thickness =
+                2.dp,
+
+            modifier =
+                Modifier.padding(
+                    horizontal = 20.dp
+                )
+        )
+
+
+        Spacer(
+            modifier =
+                Modifier.height(20.dp)
+        )
+
+
+        // ==========================================
+        // DESCRIPTION
+        // ==========================================
+
+        Text(
+            text =
+                "Choose a social media platform to create a fundraising post.",
+
+            fontFamily =
+                GoogleSans,
+
+            fontWeight =
+                FontWeight.Medium,
+
+            fontSize =
+                14.sp,
+
+            color =
+                VintageGrape,
+
+            textAlign =
+                TextAlign.Center,
+
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 24.dp
+                    )
+        )
+
+
+        Spacer(
+            modifier =
+                Modifier.height(20.dp)
+        )
+
+
+        // ==========================================
+        // SOCIAL MEDIA PLATFORM LIST
+        // ==========================================
+
+        val platforms =
+            listOf(
+                "INSTAGRAM",
+                "FACEBOOK",
+                "REDNOTE (小紅書)",
+                "TIKTOK"
+            )
+
 
         LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(15.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(
+                        horizontal = 20.dp
+                    ),
+
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    15.dp
+                )
         ) {
+
+
             items(platforms) { platform ->
+
+
                 Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, LilacAsh),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            selectedPlatform = platform
-                            postText = "Support ${vm.selectedNgo.name} in our TARUMT partnership! We are raising funds for cancer care under SDG 17. Donate today!"
-                            showPostDialog = true
-                        }
-                        .testTag("platform_$platform")
-                ) {
-                    Row(
-                        modifier = Modifier
+                    shape =
+                        RoundedCornerShape(
+                            8.dp
+                        ),
+
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor =
+                                Color.White
+                        ),
+
+                    border =
+                        BorderStroke(
+                            1.dp,
+                            LilacAsh
+                        ),
+
+                    modifier =
+                        Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+
+                            // ==========================================
+                            // CLICK SOCIAL MEDIA
+                            // ==========================================
+
+                            .clickable {
+
+                                openSocialMediaCreatePost(
+                                    context =
+                                        context,
+
+                                    platform =
+                                        platform,
+
+                                    postText =
+                                        defaultPostText
+                                )
+                            }
+
+                            .testTag(
+                                "platform_$platform"
+                            )
+                ) {
+
+
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    16.dp
+                                ),
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
+
+
+                        // ==========================================
+                        // PLATFORM ICON PLACEHOLDER
+                        // ==========================================
+
                         Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(36.dp)
-                                .border(2.dp, PineBlue, CircleShape)
-                        ) // circular placeholder
-                        Spacer(modifier = Modifier.width(15.dp))
+                                .size(48.dp)
+                        ) {
+
+                            when (platform) {
+
+                                "INSTAGRAM" -> {
+
+                                    Image(
+                                        painter = painterResource(
+                                            id = R.drawable.instagram_logo
+                                        ),
+                                        contentDescription = "Instagram",
+                                        modifier = Modifier.size(42.dp)
+                                    )
+                                }
+
+
+                                "FACEBOOK" -> {
+
+                                    Image(
+                                        painter = painterResource(
+                                            id = R.drawable.facebook_logo
+                                        ),
+                                        contentDescription = "Facebook",
+                                        modifier = Modifier.size(42.dp)
+                                    )
+                                }
+
+
+                                "REDNOTE (小紅書)" -> {
+
+                                    Image(
+                                        painter = painterResource(
+                                            id = R.drawable.rednote_logo
+                                        ),
+                                        contentDescription = "REDnote",
+                                        modifier = Modifier.size(42.dp)
+                                    )
+                                }
+
+
+                                "TIKTOK" -> {
+
+                                    Image(
+                                        painter = painterResource(
+                                            id = R.drawable.tiktok_logo
+                                        ),
+                                        contentDescription = "TikTok",
+                                        modifier = Modifier.size(42.dp)
+                                    )
+                                }
+                            }
+                        }
+
+
+                        Spacer(
+                            modifier =
+                                Modifier.width(
+                                    15.dp
+                                )
+                        )
+
+
+                        // ==========================================
+                        // PLATFORM NAME
+                        // ==========================================
+
+                        Column(
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+
+
+                            Text(
+                                text =
+                                    platform,
+
+                                fontFamily =
+                                    GoogleSans,
+
+                                fontWeight =
+                                    FontWeight.Bold,
+
+                                fontSize =
+                                    16.sp,
+
+                                color =
+                                    PineBlue
+                            )
+
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(
+                                        3.dp
+                                    )
+                            )
+
+
+                            Text(
+                                text =
+                                    "Create fundraising post",
+
+                                fontFamily =
+                                    GoogleSans,
+
+                                fontSize =
+                                    12.sp,
+
+                                color =
+                                    VintageGrapeLight
+                            )
+                        }
+
+
+                        // ==========================================
+                        // OPEN INDICATOR
+                        // ==========================================
+
                         Text(
-                            text = platform,
-                            fontFamily = GoogleSans,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = PineBlue
+                            text =
+                                ">",
+
+                            fontFamily =
+                                GoogleSans,
+
+                            fontWeight =
+                                FontWeight.Bold,
+
+                            fontSize =
+                                22.sp,
+
+                            color =
+                                PineBlue
                         )
                     }
                 }
             }
         }
 
-        // Empty Bottom Area suggested by wireframe placeholder
+
+        // ==========================================
+        // BOTTOM INFORMATION
+        // ==========================================
+
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .padding(horizontal = 20.dp, vertical = 10.dp)
-                .border(1.dp, LilacAsh, RoundedCornerShape(8.dp))
-                .background(Color.White),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Create templates or drafts for social media reels & posts above.",
-                fontFamily = GoogleSans,
-                fontSize = 12.sp,
-                color = LilacAsh,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        Spacer(modifier = Modifier.height(15.dp))
-
-        // Dialog for entering Social Media post
-        if (showPostDialog) {
-            AlertDialog(
-                onDismissRequest = { showPostDialog = false },
-                title = { Text("Publish to $selectedPlatform", fontFamily = GoogleSans, color = PineBlue, fontWeight = FontWeight.Bold) },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = postText,
-                            onValueChange = { postText = it },
-                            label = { Text("Post Body") },
-                            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 20.dp,
+                        vertical = 10.dp
+                    )
+                    .border(
+                        1.dp,
+                        LilacAsh,
+                        RoundedCornerShape(
+                            8.dp
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text("This post will be directly visible to your followers.", fontSize = 12.sp, color = LilacAsh)
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            vm.createSocialPost(selectedPlatform, postText)
-                            showPostDialog = false
-                            Toast.makeText(context, "Post successfully published to $selectedPlatform!", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Malachite)
-                    ) {
-                        Text("POST NOW")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showPostDialog = false }) {
-                        Text("Cancel", color = PineBlue)
-                    }
-                }
+                    )
+                    .background(
+                        Color.White
+                    ),
+
+            contentAlignment =
+                Alignment.Center
+        ) {
+
+
+            Text(
+                text =
+                    "Select a platform above to open its post creation page.",
+
+                fontFamily =
+                    GoogleSans,
+
+                fontSize =
+                    12.sp,
+
+                color =
+                    LilacAsh,
+
+                textAlign =
+                    TextAlign.Center,
+
+                modifier =
+                    Modifier.padding(
+                        20.dp
+                    )
             )
         }
+
+
+        Spacer(
+            modifier =
+                Modifier.height(
+                    15.dp
+                )
+        )
     }
 }
 
