@@ -1,5 +1,12 @@
 package com.example.screens
 
+import android.graphics.Canvas
+import android.graphics.Color as AndroidColor
+import android.graphics.Paint
+import android.graphics.Typeface
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
 import androidx.compose.ui.layout.ContentScale
 import com.example.R
 import androidx.compose.foundation.Image
@@ -1441,7 +1448,336 @@ private fun openSocialMediaWebsite(
         ).show()
     }
 }
+private fun generateFundraisingPoster(
+    context: Context,
+    ngoName: String,
+    qrBitmap: Bitmap,
+    raisedAmount: Double,
+    goalAmount: Double
+): Bitmap {
 
+    val width = 1080
+    val height = 1350
+
+    val bitmap = Bitmap.createBitmap(
+        width,
+        height,
+        Bitmap.Config.ARGB_8888
+    )
+
+    val canvas = Canvas(bitmap)
+
+    canvas.drawColor(
+        AndroidColor.WHITE
+    )
+
+
+    val titlePaint = Paint().apply {
+        color = AndroidColor.rgb(30, 65, 90)
+        textSize = 70f
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = Paint.Align.CENTER
+        isAntiAlias = true
+    }
+
+
+    val ngoPaint = Paint().apply {
+        color = AndroidColor.rgb(80, 40, 110)
+        textSize = 48f
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = Paint.Align.CENTER
+        isAntiAlias = true
+    }
+
+
+    val normalPaint = Paint().apply {
+        color = AndroidColor.DKGRAY
+        textSize = 42f
+        textAlign = Paint.Align.CENTER
+        isAntiAlias = true
+    }
+
+
+    val progressPaint = Paint().apply {
+        color = AndroidColor.rgb(0, 135, 135)
+        textSize = 46f
+        typeface = Typeface.DEFAULT_BOLD
+        textAlign = Paint.Align.CENTER
+        isAntiAlias = true
+    }
+
+
+    canvas.drawText(
+        "UniFunder",
+        width / 2f,
+        120f,
+        titlePaint
+    )
+
+
+    canvas.drawText(
+        "SUPPORT",
+        width / 2f,
+        220f,
+        normalPaint
+    )
+
+
+    canvas.drawText(
+        ngoName.uppercase(),
+        width / 2f,
+        300f,
+        ngoPaint
+    )
+
+
+    val qrSize = 520
+
+    val scaledQr =
+        Bitmap.createScaledBitmap(
+            qrBitmap,
+            qrSize,
+            qrSize,
+            true
+        )
+
+
+    val qrLeft =
+        (width - qrSize) / 2f
+
+    val qrTop =
+        380f
+
+
+    canvas.drawBitmap(
+        scaledQr,
+        qrLeft,
+        qrTop,
+        null
+    )
+
+
+    canvas.drawText(
+        "Scan to Donate",
+        width / 2f,
+        970f,
+        normalPaint
+    )
+
+
+    canvas.drawText(
+        "RM ${
+            String.format(
+                Locale.US,
+                "%.2f",
+                raisedAmount
+            )
+        } / RM ${
+            String.format(
+                Locale.US,
+                "%.2f",
+                goalAmount
+            )
+        } Raised",
+        width / 2f,
+        1060f,
+        progressPaint
+    )
+
+
+    canvas.drawText(
+        "TAR UMT × SDG 17 Partnership",
+        width / 2f,
+        1180f,
+        normalPaint
+    )
+
+
+    canvas.drawText(
+        "Powered by UniFunder",
+        width / 2f,
+        1260f,
+        normalPaint
+    )
+
+
+    return bitmap
+}
+
+private fun savePosterToCache(
+    context: Context,
+    bitmap: Bitmap
+): Uri? {
+
+    return try {
+
+        val imagesFolder =
+            File(
+                context.cacheDir,
+                "shared_images"
+            )
+
+        if (!imagesFolder.exists()) {
+            imagesFolder.mkdirs()
+        }
+
+
+        val imageFile =
+            File(
+                imagesFolder,
+                "unifunder_fundraising.png"
+            )
+
+
+        FileOutputStream(
+            imageFile
+        ).use { outputStream ->
+
+            bitmap.compress(
+                Bitmap.CompressFormat.PNG,
+                100,
+                outputStream
+            )
+        }
+
+
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            imageFile
+        )
+
+    } catch (e: Exception) {
+
+        null
+    }
+}
+private fun shareFundraisingPoster(
+    context: Context,
+    platform: String,
+    imageUri: Uri,
+    postText: String
+) {
+    if (platform == "TIKTOK") {
+
+        val packages =
+            listOf(
+                "com.zhiliaoapp.musically",
+                "com.ss.android.ugc.trill"
+            )
+
+
+        for (pkg in packages) {
+
+            try {
+
+                val intent =
+                    Intent(
+                        Intent.ACTION_SEND
+                    ).apply {
+
+                        type =
+                            "image/png"
+
+                        putExtra(
+                            Intent.EXTRA_STREAM,
+                            imageUri
+                        )
+
+                        addFlags(
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+
+                        setPackage(
+                            pkg
+                        )
+                    }
+
+
+                context.startActivity(
+                    intent
+                )
+
+                return
+
+            } catch (e: Exception) {
+            }
+        }
+
+
+        Toast.makeText(
+            context,
+            "Unable to open TikTok.",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        return
+    }
+    val packageName =
+        when (platform) {
+
+            "INSTAGRAM" ->
+                "com.instagram.android"
+
+            "FACEBOOK" ->
+                "com.facebook.katana"
+
+            "REDNOTE (小紅書)" ->
+                "com.xingin.xhs"
+
+            "TIKTOK" ->
+                "com.zhiliaoapp.musically"
+
+            else ->
+                null
+        }
+
+
+    try {
+
+        val shareIntent =
+            Intent(
+                Intent.ACTION_SEND
+            ).apply {
+
+                type =
+                    "image/png"
+
+                putExtra(
+                    Intent.EXTRA_STREAM,
+                    imageUri
+                )
+
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    postText
+                )
+
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+
+                if (packageName != null) {
+                    setPackage(
+                        packageName
+                    )
+                }
+            }
+
+
+        context.startActivity(
+            shareIntent
+        )
+
+    } catch (e: Exception) {
+
+        Toast.makeText(
+            context,
+            "$platform could not be opened.",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
 @Composable
 fun SocialMediaScreen(
     vm: MainViewModel,
@@ -1450,6 +1786,14 @@ fun SocialMediaScreen(
 
     val context =
         LocalContext.current
+    val qrBitmap =
+        remember(vm.qrContent) {
+
+            generateQrBitmap(
+                vm.qrContent
+            )
+        }
+
 
 
     // ==========================================
@@ -1661,16 +2005,52 @@ fun SocialMediaScreen(
 
                             .clickable {
 
-                                openSocialMediaCreatePost(
-                                    context =
+                                if (qrBitmap == null) {
+
+                                    Toast.makeText(
                                         context,
+                                        "QR code not available.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
 
-                                    platform =
-                                        platform,
+                                    return@clickable
+                                }
 
-                                    postText =
-                                        defaultPostText
-                                )
+
+                                val posterBitmap =
+                                    generateFundraisingPoster(
+                                        context = context,
+                                        ngoName = vm.selectedNgo.name,
+                                        qrBitmap = qrBitmap,
+                                        raisedAmount = vm.qrRaisedAmount,
+                                        goalAmount = vm.qrGoalAmount
+                                    )
+
+
+                                val imageUri =
+                                    savePosterToCache(
+                                        context = context,
+                                        bitmap = posterBitmap
+                                    )
+
+
+                                if (imageUri != null) {
+
+                                    shareFundraisingPoster(
+                                        context = context,
+                                        platform = platform,
+                                        imageUri = imageUri,
+                                        postText = defaultPostText
+                                    )
+
+                                } else {
+
+                                    Toast.makeText(
+                                        context,
+                                        "Unable to generate fundraising poster.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
 
                             .testTag(
