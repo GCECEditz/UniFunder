@@ -155,13 +155,92 @@ class MainViewModel : ViewModel() {
     var qrError by mutableStateOf<String?>(null)
         private set
 
+    // =======================================================
+    // QR SESSION DATA
+    // Resets when app is completely closed/reopened.
+    // =======================================================
+
+    private val qrSessionRaisedAmounts =
+        mutableMapOf<String, Double>()
+
+    private val qrSessionMyDonations =
+        mutableMapOf<String, Double>()
+
+    private val qrSessionGoalAmounts =
+        mutableMapOf<String, Double>()
+
+    private val qrSessionContents =
+        mutableMapOf<String, String>()
+
+    private val qrLoadedNgoIds =
+        mutableSetOf<String>()
+
 
     // Called when user selects another NGO from dropdown
     fun selectNgoForQr(ngo: Ngo) {
 
         selectedNgo = ngo
 
-        loadFundraisingProgress(ngo.id)
+        loadFundraisingProgress(
+            ngo.id
+        )
+    }
+
+    // =======================================================
+    // SIMULATE QR DONATION
+    // =======================================================
+    fun simulateQrDonation(): Double {
+
+        // Generate RM5 - RM50
+        val donationAmount =
+            (5..50).random().toDouble()
+
+        // Increase current displayed progress
+        qrRaisedAmount += donationAmount
+
+        // Increase current user's contribution
+        qrMyDonation += donationAmount
+
+        // ===================================================
+        // SAVE INTO SESSION MEMORY
+        // ===================================================
+
+        qrSessionRaisedAmounts[selectedNgo.id] =
+            qrRaisedAmount
+
+        qrSessionMyDonations[selectedNgo.id] =
+            qrMyDonation
+
+        qrSessionGoalAmounts[selectedNgo.id] =
+            qrGoalAmount
+
+        qrSessionContents[selectedNgo.id] =
+            qrContent
+
+        qrLoadedNgoIds.add(
+            selectedNgo.id
+        )
+
+        // Dashboard simulation
+        fundsRaised += donationAmount
+        donorsReached += 1
+
+        // Feed notification
+        val donationMessage =
+            "RM ${
+                String.format(
+                    java.util.Locale.US,
+                    "%.2f",
+                    donationAmount
+                )
+            } DONATED TO ${selectedNgo.name.uppercase()}"
+
+        feedItems.add(
+            0,
+            donationMessage
+        )
+
+        return donationAmount
     }
 
     private fun setDefaultQrProgress(ngoId: String) {
@@ -208,9 +287,45 @@ class MainViewModel : ViewModel() {
 
 
     // Read FundraisingProgress table from Supabase
+    // =======================================================
+// LOAD FUNDRAISING PROGRESS
+// =======================================================
     fun loadFundraisingProgress(
         ngoId: String = selectedNgo.id
     ) {
+
+        // ===================================================
+        // CHECK SESSION FIRST
+        // ===================================================
+
+        if (qrLoadedNgoIds.contains(ngoId)) {
+
+            qrRaisedAmount =
+                qrSessionRaisedAmounts[ngoId]
+                    ?: 0.0
+
+            qrMyDonation =
+                qrSessionMyDonations[ngoId]
+                    ?: 0.0
+
+            qrGoalAmount =
+                qrSessionGoalAmounts[ngoId]
+                    ?: 500.0
+
+            qrContent =
+                qrSessionContents[ngoId]
+                    ?: selectedNgo.website
+
+            qrError = null
+
+            return
+        }
+
+
+        // ===================================================
+        // FIRST TIME OPENING THIS NGO
+        // LOAD SUPABASE / DEFAULT DATA
+        // ===================================================
 
         viewModelScope.launch {
 
@@ -219,41 +334,46 @@ class MainViewModel : ViewModel() {
 
             try {
 
-                // Get every FundraisingProgress row belonging to this NGO
-                val records = withContext(Dispatchers.IO) {
+                val records =
+                    withContext(Dispatchers.IO) {
 
-                    SupabaseClient.client
-                        .postgrest["FundraisingProgress"]
-                        .select {
+                        SupabaseClient.client
+                            .postgrest["FundraisingProgress"]
+                            .select {
 
-                            filter {
-                                eq("ngo_id", ngoId)
+                                filter {
+
+                                    eq(
+                                        "ngo_id",
+                                        ngoId
+                                    )
+                                }
                             }
+                            .decodeList<FundraisingProgress>()
+                    }
 
-                        }
-                        .decodeList<FundraisingProgress>()
-                }
 
-                // NO DATA FOUND
+                // ===================================================
+                // NO SUPABASE DATA
+                // USE DEFAULT DEMO VALUE
+                // ===================================================
 
                 if (records.isEmpty()) {
 
-                    setDefaultQrProgress(ngoId)
+                    setDefaultQrProgress(
+                        ngoId
+                    )
 
                     qrMyDonation = 0.0
 
                     qrError = null
                 }
 
-                // DATA FOUND
+                // ===================================================
+                // SUPABASE DATA FOUND
+                // ===================================================
 
                 else {
-
-                     // user A -> Mount Miriam -> RM20
-                     // user B -> Mount Miriam -> RM50
-                     // user C -> Mount Miriam -> RM30
-                     // Total NGO progress:
-                     // RM20 + RM50 + RM30 = RM100
 
                     qrRaisedAmount =
                         records.sumOf {
@@ -261,41 +381,35 @@ class MainViewModel : ViewModel() {
                         }
 
 
-                    /*
-                     * goal_amount belongs to the NGO.
-                     *
-                     * We take the first valid goal stored for this NGO.
-                     */
                     qrGoalAmount =
                         records
                             .firstOrNull {
                                 it.goal_amount > 0.0
                             }
                             ?.goal_amount
-                            ?: records.first().goal_amount
+                            ?: records.first()
+                                .goal_amount
 
 
-                    /*
-                     * Get QR content for selected NGO.
-                     */
                     qrContent =
                         records
                             .firstOrNull {
-                                it.qr_content.isNotBlank()
+                                it.qr_content
+                                    .isNotBlank()
                             }
                             ?.qr_content
                             ?: selectedNgo.website
+
 
                     val currentUserId =
                         loggedInEmail.trim()
 
 
-
-                    // Calculate only CURRENT user's donation.
-
                     qrMyDonation =
 
-                        if (currentUserId.isBlank()) {
+                        if (
+                            currentUserId.isBlank()
+                        ) {
 
                             0.0
 
@@ -308,7 +422,6 @@ class MainViewModel : ViewModel() {
                                         currentUserId,
                                         ignoreCase = true
                                     )
-
                                 }
                                 .sumOf {
 
@@ -317,6 +430,27 @@ class MainViewModel : ViewModel() {
                                 }
                         }
                 }
+
+
+                // ===================================================
+                // SAVE INITIAL RESULT INTO SESSION
+                // ===================================================
+
+                qrSessionRaisedAmounts[ngoId] =
+                    qrRaisedAmount
+
+                qrSessionMyDonations[ngoId] =
+                    qrMyDonation
+
+                qrSessionGoalAmounts[ngoId] =
+                    qrGoalAmount
+
+                qrSessionContents[ngoId] =
+                    qrContent
+
+                qrLoadedNgoIds.add(
+                    ngoId
+                )
 
             }
 
@@ -328,17 +462,43 @@ class MainViewModel : ViewModel() {
                     e
                 )
 
-                setDefaultQrProgress(ngoId)
+
+                // Use default demo values
+                setDefaultQrProgress(
+                    ngoId
+                )
 
                 qrMyDonation = 0.0
 
-                qrError = "Demo data displayed - Supabase unavailable."
+
+                // ===================================================
+                // SAVE DEFAULT INTO SESSION TOO
+                // ===================================================
+
+                qrSessionRaisedAmounts[ngoId] =
+                    qrRaisedAmount
+
+                qrSessionMyDonations[ngoId] =
+                    qrMyDonation
+
+                qrSessionGoalAmounts[ngoId] =
+                    qrGoalAmount
+
+                qrSessionContents[ngoId] =
+                    qrContent
+
+                qrLoadedNgoIds.add(
+                    ngoId
+                )
+
+
+                qrError =
+                    "Demo data displayed - Supabase unavailable."
             }
 
             finally {
 
                 qrIsLoading = false
-
             }
         }
     }

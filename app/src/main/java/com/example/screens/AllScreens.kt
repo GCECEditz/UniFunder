@@ -1404,6 +1404,7 @@ fun QrCodeScreen(
     vm: MainViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     // Controls NGO dropdown
     var dropdownExpanded by remember {
         mutableStateOf(false)
@@ -1841,17 +1842,32 @@ fun QrCodeScreen(
                         qrBitmap != null -> {
 
                             Image(
-
-                                bitmap =
-                                    qrBitmap
-                                        .asImageBitmap(),
+                                bitmap = qrBitmap.asImageBitmap(),
 
                                 contentDescription =
                                     "Donation QR for ${vm.selectedNgo.name}",
 
-                                modifier =
-                                    Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable {
 
+                                        // Simulate successful payment
+                                        val donatedAmount =
+                                            vm.simulateQrDonation()
+
+                                        // Show notification to user
+                                        Toast.makeText(
+                                            context,
+                                            "RM ${
+                                                String.format(
+                                                    Locale.US,
+                                                    "%.2f",
+                                                    donatedAmount
+                                                )
+                                            } has been donated to ${vm.selectedNgo.name}!",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                             )
                         }
                         // Error
