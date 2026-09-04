@@ -16,6 +16,7 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
+import com.google.api.services.drive.DriveScopes
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.example.model.ChatMessage
@@ -764,28 +765,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var activeProposalNgoId by mutableStateOf<String?>(null)
 
     // Proposals State
-    val proposals = mutableStateListOf<Proposal>(
-//        Proposal(
-//            id = "prop_1",
-//            ngoId = "mt_miriam",
-//            ngoName = "Mount Miriam Cancer Hospital",
-//            title = "TARUMT Cancer Care Awareness Drive",
-//            content = "This project proposal outlines a partnership between university students and Mount Miriam Cancer Hospital to conduct cancer awareness seminars and raise MYR 500 in funding to support subsidised chemotherapy treatments for B40 patients.",
-//            docsLink = "",
-//            isSent = true,
-//            isApproved = true
-//        ),
-//        Proposal(
-//            id = "prop_2",
-//            ngoId = "habitat",
-//            ngoName = "The Habitat Foundation",
-//            title = "Eco-Volunteer Rainforest Regeneration",
-//            content = "Proposal for students to volunteer in conservation and build educational exhibits. Fundraising goal is set to fund soil enrichment and native seedling planting.",
-//            docsLink = "",
-//            isSent = false,
-//            isApproved = false
-//        )
-    )
+    val proposals = mutableStateListOf<Proposal>()
 
     // Budgets State
 
@@ -875,14 +855,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun handleGoogleSignIn(email: String) {
         Log.d("MainViewModel", "Handling Google Sign-In for: $email")
         authError = null
-        if (email.endsWith(".edu.my", ignoreCase = true)) {
+        if (email.trim().endsWith(".edu.my", ignoreCase = true)) {
             Log.d("MainViewModel", "Email suffix check passed")
-            loggedInEmail = email
+            loggedInEmail = email.trim()
             isLoggedIn = true
 
             prefs.edit()
                 .putBoolean(KEY_LOGGED_IN, true)
-                .putString(KEY_EMAIL, email)
+                .putString(KEY_EMAIL, email.trim())
                 .putString(KEY_DISPLAY_NAME, loggedInDisplayName)
                 .apply()
 
@@ -1102,32 +1082,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun askAiAboutBudget(budget: Budget) {
         val fileId = extractFileIdFromUrl(budget.sheetLink)
 
-        //if no such link
         if (fileId == null) {
             onChatTextChange("Hello UniFunder AI! I'd like feedback on my budget: ${budget.name}. Unfortunately, I couldn't extract the data from the link: ${budget.sheetLink}")
             navigateTo(Screen.AskAi)
             return
         }
 
-        //not logged in
-        val credential = googleCredential
-        if (credential == null) {
-            onChatTextChange("Hello UniFunder AI! Please provide feedback on my budget '${budget.name}' details: ${budget.details}")
+        // --- Simplified Credential Logic ---
+        val emailToUse = loggedInEmail.trim()
+        if (emailToUse.isBlank()) {
+            onChatTextChange("Hello UniFunder AI! Please provide feedback on my budget '${budget.name}' details: ${budget.details}. (Note: Please sign in to analyze your spreadsheet)")
             navigateTo(Screen.AskAi)
             return
         }
 
-        //if sheet exixts, extract data
+        // Always ensure we have a credential object with the correct name
+        if (googleCredential == null || googleCredential?.selectedAccountName != emailToUse) {
+            Log.d("MainViewModel", "Initializing Google credential for: [$emailToUse]")
+            val newCred = GoogleAccountCredential.usingOAuth2(
+                getApplication(),
+                listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
+            )
+            newCred.selectedAccountName = emailToUse
+            googleCredential = newCred
+        }
+
+        val currentCredential = googleCredential!! // Guaranteed non-null by block above
+
+        //if sheet exists, extract data
         _isAiLoading.value = true
         _isPendingAiFromBudget = true
         navigateTo(Screen.AskAi)
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                Log.d("MainViewModel", "Calling Sheets API with account: ${currentCredential.selectedAccountName}")
                 val sheetsService = Sheets.Builder(
                     NetHttpTransport(),
                     GsonFactory.getDefaultInstance(),
-                    credential
+                    currentCredential
                 ).setApplicationName("UniFunder").build()
 
                 //limited range, but on a real application it would be increased
@@ -1152,6 +1145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e("MainViewModel", "Sheets API error", e)
                 
                 if (e is com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException) {
+                    Log.d("MainViewModel", "User action required for Sheets API")
                     _authIntent.value = e.intent
                     _isAiLoading.value = false
                     return@launch
