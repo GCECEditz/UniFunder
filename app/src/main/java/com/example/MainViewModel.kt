@@ -1080,6 +1080,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Drive API error", e)
+
+                if (e is com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException) {
+                    withContext(Dispatchers.Main) {
+                        _authIntent.value = e.intent
+                        onResult(false, "Authentication required. Please authorize the app and try again.")
+                    }
+                    return@launch
+                }
+
                 val message = when {
                     e.message?.contains("403") == true -> "403 Forbidden: Ensure Google Drive API is enabled in Cloud Console and the permission checkbox was checked during sign-in."
                     e.message?.contains("404") == true -> "404 Not Found: The file ID does not exist or you don't have access."
