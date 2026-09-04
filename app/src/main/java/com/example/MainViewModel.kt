@@ -9,9 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.api.client.extensions.android.http.AndroidHttp
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
@@ -150,7 +150,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var loggedInEmail by mutableStateOf("")
     var loggedInDisplayName by mutableStateOf("")
     var authError by mutableStateOf<String?>(null)
-    var googleAccount by mutableStateOf<GoogleSignInAccount?>(null)
     var googleCredential by mutableStateOf<GoogleAccountCredential?>(null)
 
     init {
@@ -863,19 +862,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
-    fun handleGoogleSignIn(email: String, account: GoogleSignInAccount? = null) {
+    fun handleGoogleSignIn(email: String) {
+        Log.d("MainViewModel", "Handling Google Sign-In for: $email")
         authError = null
         if (email.endsWith(".edu.my", ignoreCase = true)) {
-            val displayName = account?.displayName ?: email.substringBefore("@")
+            Log.d("MainViewModel", "Email suffix check passed")
             loggedInEmail = email
-            loggedInDisplayName = displayName
-            googleAccount = account
             isLoggedIn = true
 
             prefs.edit()
                 .putBoolean(KEY_LOGGED_IN, true)
                 .putString(KEY_EMAIL, email)
-                .putString(KEY_DISPLAY_NAME, displayName)
+                .putString(KEY_DISPLAY_NAME, loggedInDisplayName)
                 .apply()
 
             loadFeedItems()
@@ -886,11 +884,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun logout(googleSignInClient: GoogleSignInClient? = null) {
-        try {
-            googleSignInClient?.signOut()
-        } catch (e: Exception) {
-            Log.e("MainViewModel", "Google SignOut failed", e)
+    fun logout(context: Context) {
+        viewModelScope.launch {
+            try {
+                val credentialManager = CredentialManager.create(context)
+                credentialManager.clearCredentialState(ClearCredentialStateRequest())
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "SignOut failed", e)
+            }
         }
         isLoggedIn = false
         loggedInEmail = ""
@@ -1050,7 +1051,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val driveService = Drive.Builder(
-                    AndroidHttp.newCompatibleTransport(),
+                    NetHttpTransport(),
                     GsonFactory.getDefaultInstance(),
                     credential
                 ).setApplicationName("UniFunder").build()

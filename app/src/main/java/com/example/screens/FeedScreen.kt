@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.MainViewModel
 import com.example.ui.theme.LilacAsh
-import com.example.ui.theme.Malachite
 import com.example.ui.theme.PineBlue
 import com.example.ui.theme.VintageGrape
 

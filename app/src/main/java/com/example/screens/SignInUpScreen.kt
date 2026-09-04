@@ -17,13 +17,11 @@ import androidx.compose.ui.unit.sp
 import com.example.MainViewModel
 import com.example.ui.theme.Malachite
 import com.example.ui.theme.PineBlue
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 
 @Composable
 fun SignInUpScreen(
     vm: MainViewModel,
     onGoogleSignInClick: () -> Unit,
-    googleSignInClient: GoogleSignInClient,
     modifier: Modifier = Modifier
 ) {
     Column(

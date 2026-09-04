@@ -27,15 +27,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.MainViewModel
 import com.example.ui.theme.*
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import java.util.Locale
 
 @Composable
 fun ProfileScreen(
     vm: MainViewModel,
-    googleSignInClient: GoogleSignInClient,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -96,7 +95,7 @@ fun ProfileScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            vm.logout(googleSignInClient)
+                            vm.logout(context)
                             showLogoutDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Malachite),

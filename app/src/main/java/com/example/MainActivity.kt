@@ -10,12 +10,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.LaunchedEffect
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.services.drive.DriveScopes
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,15 +53,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail()
-            .requestScopes(Scope(DriveScopes.DRIVE_METADATA_READONLY))
-            .build()
-        val googleSignInClient = GoogleSignIn.getClient(this, gso)
+        val credentialManager = CredentialManager.create(this)
 
         setContent {
             MyApplicationTheme {
                 val vm: MainViewModel = viewModel()
+                val scope = rememberCoroutineScope()
 
                 // Re-initialize credential if already logged in (Only once on start)
                 LaunchedEffect(Unit) {
@@ -71,32 +72,54 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val launcher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.StartActivityForResult()
-                ) { result ->
-                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                    try {
-                        val account = task.getResult(ApiException::class.java)
-                        account?.let { acc ->
-                            vm.loggedInDisplayName = acc.displayName ?: acc.email?.substringBefore("@") ?: "User"
-                            acc.email?.let { email ->
-                                val credential = GoogleAccountCredential.usingOAuth2(
+                val onGoogleSignInClick = {
+                    val googleIdOption = GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(false)
+                        .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID) 
+                        .build()
+
+                    val request = GetCredentialRequest.Builder()
+                        .addCredentialOption(googleIdOption)
+                        .build()
+
+                    scope.launch {
+                        try {
+                            Log.d("MainActivity", "Starting Credential Manager request...")
+                            val result = credentialManager.getCredential(this@MainActivity, request)
+                            val credential = result.credential
+                            
+                            Log.d("MainActivity", "Received credential type: ${credential.type}")
+                            
+                            val googleIdTokenCredential = try {
+                                GoogleIdTokenCredential.createFrom(credential.data)
+                            } catch (e: Exception) {
+                                null
+                            }
+
+                            if (googleIdTokenCredential != null) {
+                                val email = googleIdTokenCredential.id
+                                val displayName = googleIdTokenCredential.displayName ?: "User"
+                                
+                                Log.d("MainActivity", "Google Sign-In successful for: $email")
+                                
+                                vm.loggedInDisplayName = displayName
+                                vm.handleGoogleSignIn(email)
+                                
+                                // Initialize Drive credential
+                                val driveCredential = GoogleAccountCredential.usingOAuth2(
                                     this@MainActivity,
                                     listOf(DriveScopes.DRIVE_METADATA_READONLY)
                                 )
-                                credential.selectedAccountName = email
-                                vm.googleCredential = credential
-                                vm.handleGoogleSignIn(email, acc)
-                            } ?: run {
-                                vm.authError = "Google Account does not have an email address associated."
+                                driveCredential.selectedAccountName = email
+                                vm.googleCredential = driveCredential
+                            } else {
+                                Log.w("MainActivity", "Failed to parse GoogleIdTokenCredential from ${credential.type}")
+                                vm.authError = "Unexpected login response type: ${credential.type}"
                             }
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Credential Manager failed", e)
+                            vm.authError = "Sign-In failed: ${e.localizedMessage}"
                         }
-                    } catch (e: ApiException) {
-                        Log.e("MainActivity", "Google sign in failed code=${e.statusCode}", e)
-                        vm.authError = "Google Sign-In failed (Error ${e.statusCode}). Check SHA-1 registration in Google Console."
-                    } catch (e: Exception) {
-                        Log.e("MainActivity", "Unexpected error during sign in", e)
-                        vm.authError = "An unexpected error occurred: ${e.message}"
                     }
                 }
 
@@ -150,14 +173,11 @@ class MainActivity : ComponentActivity() {
                         when (screen) {
                             Screen.SignInUp -> SignInUpScreen(
                                 vm = vm,
-                                onGoogleSignInClick = {
-                                    launcher.launch(googleSignInClient.signInIntent)
-                                },
-                                googleSignInClient = googleSignInClient
+                                onGoogleSignInClick = { onGoogleSignInClick() }
                             )
                             Screen.Home -> HomeScreen(vm = vm)
                             Screen.SelectNgo -> SelectNgoScreen(vm = vm)
-                            Screen.Profile -> ProfileScreen(vm = vm, googleSignInClient = googleSignInClient)
+                            Screen.Profile -> ProfileScreen(vm = vm)
                             Screen.Feed -> FeedScreen(vm = vm)
                             Screen.SocialMedia -> SocialMediaScreen(vm = vm)
                             Screen.AskAi -> AskAiScreen(vm = vm)
