@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
                         )
                         credential.selectedAccountName = vm.loggedInEmail
                         vm.googleCredential = credential
+                        Log.d("MainActivity", "Restored Google Credentials for: ${vm.loggedInEmail}")
                     }
                 }
 
