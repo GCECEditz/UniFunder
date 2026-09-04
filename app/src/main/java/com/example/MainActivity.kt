@@ -5,14 +5,14 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import android.accounts.AccountManager
+import com.google.android.gms.common.AccountPicker
 import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.launch
@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val credentialManager = CredentialManager.create(this)
+        // Removed CredentialManager in favor of AccountPicker
 
         setContent {
             MyApplicationTheme {
@@ -69,55 +69,36 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val onGoogleSignInClick = {
-                    val googleIdOption = GetGoogleIdOption.Builder()
-                        .setFilterByAuthorizedAccounts(false)
-                        .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID) 
-                        .build()
+                val accountPickerLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    if (result.resultCode == RESULT_OK) {
+                        val accountName = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+                        if (accountName != null) {
+                            Log.d("MainActivity", "Account selected: $accountName")
+                            vm.loggedInDisplayName = accountName.substringBefore("@")
+                            vm.handleGoogleSignIn(accountName)
 
-                    val request = GetCredentialRequest.Builder()
-                        .addCredentialOption(googleIdOption)
-                        .build()
-
-                    scope.launch {
-                        try {
-                            Log.d("MainActivity", "Starting Credential Manager request...")
-                            val result = credentialManager.getCredential(this@MainActivity, request)
-                            val credential = result.credential
-                            
-                            Log.d("MainActivity", "Received credential type: ${credential.type}")
-                            
-                            val googleIdTokenCredential = try {
-                                GoogleIdTokenCredential.createFrom(credential.data)
-                            } catch (e: Exception) {
-                                null
-                            }
-
-                            if (googleIdTokenCredential != null) {
-                                val email = googleIdTokenCredential.id
-                                val displayName = googleIdTokenCredential.displayName ?: "User"
-                                
-                                Log.d("MainActivity", "Google Sign-In successful for: $email")
-                                
-                                vm.loggedInDisplayName = displayName
-                                vm.handleGoogleSignIn(email)
-                                
-                                // Initialize Drive & Sheets credential
-                                val driveCredential = GoogleAccountCredential.usingOAuth2(
-                                    this@MainActivity,
-                                    listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
-                                )
-                                driveCredential.selectedAccountName = email
-                                vm.googleCredential = driveCredential
-                            } else {
-                                Log.w("MainActivity", "Failed to parse GoogleIdTokenCredential from ${credential.type}")
-                                vm.authError = "Unexpected login response type: ${credential.type}"
-                            }
-                        } catch (e: Exception) {
-                            Log.e("MainActivity", "Credential Manager failed", e)
-                            vm.authError = "Sign-In failed: ${e.localizedMessage}"
+                            // Initialize Drive & Sheets credential
+                            val driveCredential = GoogleAccountCredential.usingOAuth2(
+                                this@MainActivity,
+                                listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
+                            )
+                            driveCredential.selectedAccountName = accountName
+                            vm.googleCredential = driveCredential
                         }
+                    } else {
+                        Log.w("MainActivity", "Account picker cancelled or failed")
                     }
+                }
+
+                val onGoogleSignInClick = {
+                    val intent = AccountPicker.newChooseAccountIntent(
+                        AccountPicker.AccountChooserOptions.Builder()
+                            .setAllowableAccountsTypes(listOf("com.google"))
+                            .build()
+                    )
+                    accountPickerLauncher.launch(intent)
                 }
 
                 // Map system physical back button to our custom VM backstack

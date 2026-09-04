@@ -34,7 +34,6 @@ fun ProfileScreen(
     vm: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -95,7 +94,7 @@ fun ProfileScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            vm.logout(context)
+                            vm.logout()
                             showLogoutDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Malachite),

@@ -10,8 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.credentials.ClearCredentialStateRequest
-import androidx.credentials.CredentialManager
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.json.gson.GsonFactory
@@ -874,20 +872,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun logout(context: Context) {
-        viewModelScope.launch {
-            try {
-                val credentialManager = CredentialManager.create(context)
-                credentialManager.clearCredentialState(ClearCredentialStateRequest())
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "SignOut failed", e)
-            }
-        }
+    fun logout() {
+        // Local logout - clears session and preferences
         isLoggedIn = false
         loggedInEmail = ""
         loggedInDisplayName = ""
         authError = null
         proposalDocsLink = ""
+        googleCredential = null
 
         prefs.edit().clear().apply()
 
