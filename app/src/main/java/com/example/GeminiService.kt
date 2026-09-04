@@ -107,7 +107,7 @@ object GeminiService {
             lower.contains("proposal") || lower.contains("optimize") -> {
                 "Here are 3 ways to optimize your project proposal for Mount Miriam Cancer Hospital:\n\n" +
                 "1. **Quantify the Impact**: Clearly state how the $500 fundraising goal will directly translate to patient care (e.g., funding patient diagnostic tests).\n" +
-                "2. **University Collaboration**: Emphasize how TARUMT students will organize a charity food drive, promoting student-NGO alignment (SDG 17).\n" +
+                "2. **University Collaboration**: Emphasize how University students will organize a charity food drive, promoting student-NGO alignment (SDG 17).\n" +
                 "3. **Incentive Structure**: Propose offering student participation certificates and co-curricular points to boost engagement."
             }
             lower.contains("budget") || lower.contains("fund") -> {
