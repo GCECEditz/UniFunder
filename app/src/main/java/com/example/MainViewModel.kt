@@ -1130,7 +1130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 // Fetch first few rows/cols to get an idea of the budget
                 val response: ValueRange = sheetsService.spreadsheets().values()
-                    .get(fileId, "A1:E20")
+                    .get(fileId, "A1:J30")
                     .execute()
 
                 val values = response.getValues()
