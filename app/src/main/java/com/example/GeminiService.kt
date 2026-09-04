@@ -51,6 +51,7 @@ object GeminiService {
             })
         }
 
+        //query settings, configurations and contents
         val jsonPayload = JSONObject().apply {
             put("contents", contentsArray)
             put("systemInstruction", JSONObject().apply {
@@ -64,6 +65,7 @@ object GeminiService {
             })
         }
 
+        //creates the url to perform the service
         val requestBody = jsonPayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         val request = Request.Builder()
             .url(url)
@@ -79,7 +81,8 @@ object GeminiService {
                     Log.e(TAG, "API Error: status code ${response.code}, body: $errBody")
                     return@withContext "API Error: ${response.code}. Falling back to offline assistant.\n\n${getSimulatedResponse(prompt)}"
                 }
-                
+
+                //strip everything to extract content
                 val responseBody = response.body?.string() ?: return@withContext "Error: Empty response body"
                 val jsonResponse = JSONObject(responseBody)
                 val candidates = jsonResponse.optJSONArray("candidates")
@@ -101,6 +104,7 @@ object GeminiService {
         }
     }
 
+    //fake placeholder responses for offline simulation
     private fun getSimulatedResponse(prompt: String): String {
         val lower = prompt.lowercase()
         return when {

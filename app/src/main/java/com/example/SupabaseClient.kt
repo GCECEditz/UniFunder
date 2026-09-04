@@ -3,6 +3,8 @@ package com.example
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 
+
+//create supabase client singleton object
 object SupabaseClient {
     private const val SUPABASE_URL = BuildConfig.SUPABASE_URL
     private val SUPABASE_ANON_KEY = BuildConfig.SUPABASE_API_KEY

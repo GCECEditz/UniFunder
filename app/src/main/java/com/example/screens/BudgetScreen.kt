@@ -79,22 +79,23 @@ fun BudgetScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+
     val authIntent by vm.authIntent.collectAsStateWithLifecycle()
     val authLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
-        // When user returns from Google permission screen, try again
+        //finished authentication
         vm.onAuthIntentHandled()
-        // Ideally, we'd trigger the AI call again automatically here
     }
 
+    //launch intent
     androidx.compose.runtime.LaunchedEffect(authIntent) {
         authIntent?.let { intent ->
             authLauncher.launch(intent)
         }
     }
 
-    // Fetch budgets from Supabase on launch
+    //fetch budgets from supabase
     androidx.compose.runtime.LaunchedEffect(vm.loggedInEmail) {
         vm.fetchUserBudgetsFromSupabase()
     }
@@ -137,7 +138,7 @@ fun BudgetScreen(
             )
         }
 
-        // Search Bar
+        //search Bar for filter
         OutlinedTextField(
             value = searchQuery,
             onValueChange = vm::onBudgetSearchQueryChange,
@@ -184,7 +185,7 @@ fun BudgetScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Ask AI button (bottom left)
+            // Ask AI button
             IconButton(
                 onClick = { vm.navigateTo(Screen.AskAi) },
                 modifier = Modifier
@@ -201,7 +202,7 @@ fun BudgetScreen(
 
             var showCreateMenu by remember { mutableStateOf(false) }
 
-            // Create dropdown button (bottom right)
+            // Create dropdown button
             Box {
                 IconButton(
                     onClick = { showCreateMenu = true },
@@ -233,7 +234,7 @@ fun BudgetScreen(
             }
         }
 
-        // Dialog to create a new budget
+        //create a new budget
         if (showCreateBudgetDialog) {
             val inputName by vm.budget_name.collectAsStateWithLifecycle()
             val inputDetails by vm.budget_description.collectAsStateWithLifecycle()
@@ -276,18 +277,19 @@ fun BudgetScreen(
                     Button(
                         onClick = {
                             isVerifying = true
+
+                            //check if sheet is owned by user first
                             vm.verifySheetOwnership(docLink) { success, errorMessage ->
                                 isVerifying = false
                                 if (success) {
-                                    // Local update
+
                                     vm.createNewBudget(inputName, inputDetails, docLink)
-                                    
-                                    // Supabase update: Create sheet record AND user association
+
                                     scope.launch {
                                         val supabaseSuccess = vm.createAndAssociateSheet(inputName, inputDetails, docLink)
                                         if (supabaseSuccess) {
                                             Log.d("BudgetScreen", "Sheet and Association saved to Supabase")
-                                            vm.fetchUserBudgetsFromSupabase() // Refresh list
+                                            vm.fetchUserBudgetsFromSupabase() //refresh list
                                         } else {
                                             Log.e("BudgetScreen", "Supabase link failed")
                                         }
@@ -316,7 +318,7 @@ fun BudgetScreen(
             )
         }
 
-        // Dialog to rename budget
+        //rename budget
         if (showRenameBudgetDialog){
             val selectedBudget by vm.selectedBudget.collectAsStateWithLifecycle()
 
@@ -356,7 +358,7 @@ fun BudgetScreen(
                                 if (renameName.isNotBlank()) {
                                     scope.launch {
                                         vm.renameBudget(selectedBudget.id, renameName, renameDetails)
-                                        vm.fetchUserBudgetsFromSupabase() // Refresh list
+                                        vm.fetchUserBudgetsFromSupabase() //refresh list
                                     }
                                     reset_rename_vars(vm)
                                     Toast.makeText(context, rename_toast, Toast.LENGTH_SHORT).show()
@@ -378,7 +380,7 @@ fun BudgetScreen(
             }
         }
 
-        // Dialog to confirm deletion
+        //confirm deletion
         if (showDeleteBudgetDialog) {
             val selectedBudget by vm.selectedBudget.collectAsStateWithLifecycle()
             selectedBudget?.let { budget ->
@@ -393,7 +395,7 @@ fun BudgetScreen(
                             onClick = {
                                 scope.launch {
                                     vm.deleteBudget(budget.id)
-                                    vm.fetchUserBudgetsFromSupabase() // Refresh list
+                                    vm.fetchUserBudgetsFromSupabase() //refresh list
                                 }
                                 reset_delete_vars(vm)
                             },
@@ -453,6 +455,8 @@ fun BudgetRowItem(
         onClick = {
             try {
                 Toast.makeText(context, "Opening in Google Sheets. Ensure you are logged into the same account.", Toast.LENGTH_LONG).show()
+
+                //open sheets intent
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(budget.sheetLink))
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
@@ -480,7 +484,7 @@ fun BudgetRowItem(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Dropdown trig circle icon
+                //options when clicking the + icon on the row item
                 Box {
                     IconButton(
                         onClick = {

@@ -994,12 +994,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val newBudget = Budget(
             id = "budget_${UUID.randomUUID()}",
             name = name.uppercase(),
-            info = "", //info = "Active: 2026. Next Review: July 1.",
+            info = "", //not needed anymore but left blank to keep compatibility
             details = details,
             sheetLink = sheetLink
         )
         _budgets.update { budgets -> budgets + newBudget }
-        //budgets.add(newBudget)
         addFeedNotification(
             "NEW BUDGET CREATED: ${name.uppercase()}"
         )
@@ -1009,12 +1008,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val b = _budgets.value.find { it.id == id }
         val userEmail = loggedInEmail
         if (b != null && userEmail.isNotBlank()) {
-            // If it's a Supabase record (numeric ID), delete both association and sheet
             val longId = id.toLongOrNull()
             if (longId != null) {
-                // 1. Delete the link between user and sheet
+                //remove record from supabase
                 deleteAssociationBySheetId(longId, userEmail)
-                // 2. Delete the actual sheet record
                 deleteGoogleSheet(longId)
             }
             
@@ -1029,10 +1026,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val idx = _budgets.value.indexOfFirst { it.id == id }
         if (idx != -1) {
             val old = _budgets.value[idx]
-            
-            // If it's a Supabase record (numeric ID), update remote
+
             val longId = id.toLongOrNull()
             if (longId != null) {
+                //update supabase record
                 updateGoogleSheet(
                     GoogleSheetObject(id = longId, name = newName, description = newDetails)
                 )
@@ -1061,11 +1058,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val driveService = Drive.Builder(
-                    NetHttpTransport(),
+                    NetHttpTransport(), //transport method
                     GsonFactory.getDefaultInstance(),
-                    credential
+                    credential //authentication tokens
                 ).setApplicationName("UniFunder").build()
 
+                //get the file id and retrieve the email
                 val file = driveService.files().get(fileId)
                     .setFields("owners(emailAddress)")
                     .execute()
@@ -1103,12 +1101,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun askAiAboutBudget(budget: Budget) {
         val fileId = extractFileIdFromUrl(budget.sheetLink)
+
+        //if no such link
         if (fileId == null) {
             onChatTextChange("Hello UniFunder AI! I'd like feedback on my budget: ${budget.name}. Unfortunately, I couldn't extract the data from the link: ${budget.sheetLink}")
             navigateTo(Screen.AskAi)
             return
         }
 
+        //not logged in
         val credential = googleCredential
         if (credential == null) {
             onChatTextChange("Hello UniFunder AI! Please provide feedback on my budget '${budget.name}' details: ${budget.details}")
@@ -1116,6 +1117,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        //if sheet exixts, extract data
         _isAiLoading.value = true
         _isPendingAiFromBudget = true
         navigateTo(Screen.AskAi)
@@ -1128,7 +1130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     credential
                 ).setApplicationName("UniFunder").build()
 
-                // Fetch first few rows/cols to get an idea of the budget
+                //limited range, but on a real application it would be increased
                 val response: ValueRange = sheetsService.spreadsheets().values()
                     .get(fileId, "A1:J30")
                     .execute()
@@ -1182,9 +1184,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // AI Chat Operations
     fun sendChatMessage() {
         if (_chatText.value.isBlank()) return
-        _isPendingAiFromBudget = false // User sent it, so it's no longer pending
+        _isPendingAiFromBudget = false
         val promptText = _chatText.value.trim()
 
+        //user's message
         val userMsg = ChatMessage(
             id = "msg_${UUID.randomUUID()}",
             text = promptText,
@@ -1199,6 +1202,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch() {
             try {
+                //try to call the api and get gemini's response
                 val aiResponse = GeminiService.getResponse(_chatMessages.value, promptText)
 
                 val aiMsg = ChatMessage(
@@ -1237,7 +1241,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun insertGoogleSheet(sheet: GoogleSheetObject): GoogleSheetObject? = withContext(Dispatchers.IO) {
         try {
             val response = SupabaseClient.client.postgrest["GoogleSheetObject"].insert(sheet) {
-                select() // Required to get the inserted record back
+                select()
             }
             response.decodeSingle<GoogleSheetObject>()
         } catch (e: Exception) {
@@ -1300,9 +1304,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * High-level operation to create a new sheet record and associate it with the current user.
-     */
+    //create a new sheet record and associate it with the current user
     suspend fun createAndAssociateSheet(name: String, description: String, sheetUrl: String): Boolean {
         val userEmail = loggedInEmail
         if (userEmail.isBlank()) return false
@@ -1317,10 +1319,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /**
-     * Fetches all budget sheets associated with the current user's email
-     * and updates the local _budgets state flow.
-     */
+    //fetches all budget sheets associated with the current user's email
     suspend fun fetchUserBudgetsFromSupabase(): Boolean = withContext(Dispatchers.IO) {
         val userEmail = loggedInEmail
         if (userEmail.isBlank()) return@withContext false
@@ -1334,7 +1333,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }.decodeList<UserSheetAssociation>()
 
-            // Map database records to our UI Budget models
+            //create Budget object
             val fetchedBudgets = associations.mapNotNull { assoc ->
                 assoc.sheet?.let { s ->
                     Budget(
