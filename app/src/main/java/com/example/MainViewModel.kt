@@ -204,35 +204,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val donationAmount =
             (5..50).random().toDouble()
 
+        val ngoId =
+            selectedNgo.id
+
+        val userId =
+            loggedInEmail.trim()
+
+        val currentGoal =
+            qrGoalAmount
+
+        val currentQrContent =
+            qrContent
+
+
         // Increase current displayed progress
         qrRaisedAmount += donationAmount
 
         // Increase current user's contribution
         qrMyDonation += donationAmount
 
+
         // ===================================================
         // SAVE INTO SESSION MEMORY
         // ===================================================
 
-        qrSessionRaisedAmounts[selectedNgo.id] =
+        qrSessionRaisedAmounts[ngoId] =
             qrRaisedAmount
 
-        qrSessionMyDonations[selectedNgo.id] =
+        qrSessionMyDonations[ngoId] =
             qrMyDonation
 
-        qrSessionGoalAmounts[selectedNgo.id] =
+        qrSessionGoalAmounts[ngoId] =
             qrGoalAmount
 
-        qrSessionContents[selectedNgo.id] =
+        qrSessionContents[ngoId] =
             qrContent
 
         qrLoadedNgoIds.add(
-            selectedNgo.id
+            ngoId
         )
+
 
         // Dashboard simulation
         fundsRaised += donationAmount
         donorsReached += 1
+
 
         // Feed notification
         val donationMessage =
@@ -244,10 +260,139 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } DONATED TO ${selectedNgo.name.uppercase()}"
 
+
         feedItems.add(
             0,
             donationMessage
         )
+
+
+        // ===================================================
+        // SAVE DONATION TO SUPABASE
+        // ===================================================
+
+        if (userId.isNotBlank()) {
+
+            viewModelScope.launch {
+
+                try {
+
+                    // Check whether this user already has
+                    // a fundraising record for this NGO
+                    val userRecords =
+                        withContext(Dispatchers.IO) {
+
+                            SupabaseClient.client
+                                .postgrest["FundraisingProgress"]
+                                .select {
+
+                                    filter {
+
+                                        eq(
+                                            "ngo_id",
+                                            ngoId
+                                        )
+
+                                        eq(
+                                            "user_id",
+                                            userId
+                                        )
+                                    }
+                                }
+                                .decodeList<FundraisingProgress>()
+                        }
+
+
+                    if (userRecords.isNotEmpty()) {
+
+                        // User already has a row.
+                        // Add this donation to their existing amount.
+                        val existingAmount =
+                            userRecords.sumOf {
+                                it.raised_amount
+                            }
+
+                        val newAmount =
+                            existingAmount +
+                                    donationAmount
+
+
+                        withContext(Dispatchers.IO) {
+
+                            SupabaseClient.client
+                                .postgrest["FundraisingProgress"]
+                                .update(
+                                    {
+                                        set(
+                                            "raised_amount",
+                                            newAmount
+                                        )
+                                    }
+                                ) {
+
+                                    filter {
+
+                                        eq(
+                                            "ngo_id",
+                                            ngoId
+                                        )
+
+                                        eq(
+                                            "user_id",
+                                            userId
+                                        )
+                                    }
+                                }
+                        }
+
+                    } else {
+
+                        // No row for this user yet.
+                        // Create a new one.
+                        val newRecord =
+                            FundraisingProgress(
+                                ngo_id =
+                                    ngoId,
+
+                                raised_amount =
+                                    donationAmount,
+
+                                goal_amount =
+                                    currentGoal,
+
+                                qr_content =
+                                    currentQrContent,
+
+                                user_id =
+                                    userId
+                            )
+
+
+                        withContext(Dispatchers.IO) {
+
+                            SupabaseClient.client
+                                .postgrest["FundraisingProgress"]
+                                .insert(
+                                    newRecord
+                                )
+                        }
+                    }
+
+
+                } catch (e: Exception) {
+
+                    Log.e(
+                        "QR_DONATION",
+                        "Failed to save donation",
+                        e
+                    )
+
+                    qrError =
+                        "Donation shown, but failed to save to Supabase."
+                }
+            }
+        }
+
 
         return donationAmount
     }

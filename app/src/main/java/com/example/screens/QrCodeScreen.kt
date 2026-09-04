@@ -722,28 +722,6 @@ fun QrCodeScreen(
                 )
 
                 // ==================================================
-                // REFRESH BUTTON
-                // ==================================================
-
-                OutlinedButton(
-                    onClick = {
-                        vm.loadFundraisingProgress(
-                            vm.selectedNgo.id
-                        )
-                    },
-                    enabled =
-                        !vm.qrIsLoading
-                ) {
-                    Text(
-                        if (vm.qrIsLoading) {
-                            "Loading..."
-                        } else {
-                            "Refresh Progress"
-                        }
-                    )
-                }
-
-                // ==================================================
                 // ERROR
                 // ==================================================
 
