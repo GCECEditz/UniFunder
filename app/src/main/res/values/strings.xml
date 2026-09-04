@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">My Application</string>
+    <string name="app_name">Unifunder</string>
 
     <!-- Budget Screen StrRes -->
     <string name="budget_screen_title">BUDGETS</string>

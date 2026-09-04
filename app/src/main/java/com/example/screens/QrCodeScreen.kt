@@ -321,18 +321,20 @@ fun QrCodeScreen(
                 DropdownMenu(
                     expanded =
                         dropdownExpanded,
+
                     onDismissRequest = {
                         dropdownExpanded =
                             false
                     },
+
                     modifier =
                         Modifier
                             .fillMaxWidth(
                                 0.85f
-                            )
-                            .background(
-                                Color.White
-                            )
+                            ),
+
+                    containerColor =
+                        Color.White
                 ) {
                     vm.ngos.forEach { ngo ->
                         DropdownMenuItem(
@@ -342,6 +344,9 @@ fun QrCodeScreen(
 
                                     text =
                                         ngo.name,
+
+                                    color =
+                                        PineBlue,
 
                                     fontWeight =
 
