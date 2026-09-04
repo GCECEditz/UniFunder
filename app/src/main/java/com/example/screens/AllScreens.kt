@@ -1,5 +1,9 @@
 package com.example.screens
 
+import android.content.ContentValues
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
@@ -1287,9 +1291,6 @@ private fun openSocialMediaCreatePost(
                 // Official Xiaohongshu publishing deep link
                 val redNoteIntent = Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse(
-                        "xhsdiscover://post"
-                    )
                 )
 
                 redNoteIntent.setPackage(
@@ -1385,11 +1386,36 @@ private fun openSocialMediaCreatePost(
 
             } catch (e: Exception) {
 
-                Toast.makeText(
-                    context,
-                    "Unable to open TikTok.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                try {
+
+                    val playStoreIntent =
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(
+                                "market://details?id=com.zhiliaoapp.musically"
+                            )
+                        )
+
+                    context.startActivity(
+                        playStoreIntent
+                    )
+
+                } catch (e: Exception) {
+
+                    val browserIntent =
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(
+                                "https://play.google.com/store/apps/details?id=com.zhiliaoapp.musically"
+                            )
+                        )
+
+                    context.startActivity(
+                        browserIntent
+                    )
+                }
+
+                return
             }
         }
 
@@ -1652,6 +1678,92 @@ private fun savePosterToCache(
         null
     }
 }
+
+private fun savePosterToGallery(
+    context: Context,
+    bitmap: Bitmap
+): Uri? {
+
+    return try {
+
+        val fileName =
+            "UniFunder_${System.currentTimeMillis()}.png"
+
+        val values =
+            ContentValues().apply {
+
+                put(
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    fileName
+                )
+
+                put(
+                    MediaStore.Images.Media.MIME_TYPE,
+                    "image/png"
+                )
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+                    put(
+                        MediaStore.Images.Media.RELATIVE_PATH,
+                        Environment.DIRECTORY_PICTURES + "/UniFunder"
+                    )
+
+                    put(
+                        MediaStore.Images.Media.IS_PENDING,
+                        1
+                    )
+                }
+            }
+
+
+        val uri =
+            context.contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                values
+            )
+                ?: return null
+
+
+        context.contentResolver
+            .openOutputStream(uri)
+            ?.use { outputStream ->
+
+                bitmap.compress(
+                    Bitmap.CompressFormat.PNG,
+                    100,
+                    outputStream
+                )
+            }
+
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+            values.clear()
+
+            values.put(
+                MediaStore.Images.Media.IS_PENDING,
+                0
+            )
+
+            context.contentResolver.update(
+                uri,
+                values,
+                null,
+                null
+            )
+        }
+
+        uri
+
+    } catch (e: Exception) {
+
+        e.printStackTrace()
+
+        null
+    }
+}
+
 private fun shareFundraisingPoster(
     context: Context,
     platform: String,
@@ -1666,8 +1778,27 @@ private fun shareFundraisingPoster(
                 "com.ss.android.ugc.trill"
             )
 
+        var installedPackage: String? = null
 
         for (pkg in packages) {
+
+            try {
+
+                context.packageManager
+                    .getPackageInfo(
+                        pkg,
+                        0
+                    )
+
+                installedPackage = pkg
+                break
+
+            } catch (e: Exception) {
+            }
+        }
+
+
+        if (installedPackage != null) {
 
             try {
 
@@ -1676,20 +1807,26 @@ private fun shareFundraisingPoster(
                         Intent.ACTION_SEND
                     ).apply {
 
-                        type =
-                            "image/png"
+                        type = "image/*"
 
                         putExtra(
                             Intent.EXTRA_STREAM,
                             imageUri
                         )
 
+                        clipData =
+                            android.content.ClipData.newUri(
+                                context.contentResolver,
+                                "UniFunder Fundraising Poster",
+                                imageUri
+                            )
+
                         addFlags(
                             Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
 
                         setPackage(
-                            pkg
+                            installedPackage
                         )
                     }
 
@@ -1701,18 +1838,53 @@ private fun shareFundraisingPoster(
                 return
 
             } catch (e: Exception) {
+
+                e.printStackTrace()
+
+                Toast.makeText(
+                    context,
+                    "TikTok is installed but cannot receive the image.",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                return
             }
         }
 
 
-        Toast.makeText(
-            context,
-            "Unable to open TikTok.",
-            Toast.LENGTH_SHORT
-        ).show()
+        // TikTok not installed
+        try {
+
+            val playStoreIntent =
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(
+                        "market://details?id=com.zhiliaoapp.musically"
+                    )
+                )
+
+            context.startActivity(
+                playStoreIntent
+            )
+
+        } catch (e: Exception) {
+
+            val browserIntent =
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(
+                        "https://play.google.com/store/apps/details?id=com.zhiliaoapp.musically"
+                    )
+                )
+
+            context.startActivity(
+                browserIntent
+            )
+        }
 
         return
     }
+
     val packageName =
         when (platform) {
 
@@ -1740,8 +1912,7 @@ private fun shareFundraisingPoster(
                 Intent.ACTION_SEND
             ).apply {
 
-                type =
-                    "image/png"
+                type = "image/*"
 
                 putExtra(
                     Intent.EXTRA_STREAM,
@@ -1753,17 +1924,21 @@ private fun shareFundraisingPoster(
                     postText
                 )
 
+                clipData =
+                    android.content.ClipData.newUri(
+                        context.contentResolver,
+                        "UniFunder Fundraising Poster",
+                        imageUri
+                    )
+
                 addFlags(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
 
                 if (packageName != null) {
-                    setPackage(
-                        packageName
-                    )
+                    setPackage(packageName)
                 }
             }
-
 
         context.startActivity(
             shareIntent
@@ -1771,11 +1946,45 @@ private fun shareFundraisingPoster(
 
     } catch (e: Exception) {
 
-        Toast.makeText(
-            context,
-            "$platform could not be opened.",
-            Toast.LENGTH_SHORT
-        ).show()
+        if (packageName != null) {
+
+            try {
+
+                val playStoreIntent =
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                            "market://details?id=$packageName"
+                        )
+                    )
+
+                context.startActivity(
+                    playStoreIntent
+                )
+
+            } catch (e: Exception) {
+
+                val browserIntent =
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                            "https://play.google.com/store/apps/details?id=$packageName"
+                        )
+                    )
+
+                context.startActivity(
+                    browserIntent
+                )
+            }
+
+        } else {
+
+            Toast.makeText(
+                context,
+                "$platform could not be opened.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 }
 @Composable
@@ -2028,10 +2237,20 @@ fun SocialMediaScreen(
 
 
                                 val imageUri =
-                                    savePosterToCache(
-                                        context = context,
-                                        bitmap = posterBitmap
-                                    )
+                                    if (platform == "REDNOTE (小紅書)") {
+
+                                        savePosterToGallery(
+                                            context = context,
+                                            bitmap = posterBitmap
+                                        )
+
+                                    } else {
+
+                                        savePosterToCache(
+                                            context = context,
+                                            bitmap = posterBitmap
+                                        )
+                                    }
 
 
                                 if (imageUri != null) {
