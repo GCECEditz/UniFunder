@@ -38,7 +38,7 @@ import org.json.JSONArray
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("UniFunderPrefs", Context.MODE_PRIVATE)
-
+    // stores key-value pairs that are saved even when device restarts (only accessible by our app)
     private val KEY_LOGGED_IN = "is_logged_in"
     private val KEY_EMAIL = "logged_in_email"
     private val KEY_DISPLAY_NAME = "logged_in_display_name"
@@ -154,7 +154,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var authError by mutableStateOf<String?>(null)
     var googleCredential by mutableStateOf<GoogleAccountCredential?>(null)
 
-    init {
+    init { // runs when an instance is created
         loadLoginState()
         loadFeedItems()
     }
@@ -849,7 +849,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return false
     }
 
-
     fun handleGoogleSignIn(email: String) {
         Log.d("MainViewModel", "Handling Google Sign-In for: $email")
         authError = null
@@ -941,8 +940,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         addFeedNotification(
             "PROPOSAL SENT TO ${proposal.ngoName.uppercase()}: ${proposal.title.uppercase()}"
         )
-        
-        // Dynamic approval simulation for prototype fun!
+
         viewModelScope.launch {
             // Simulate NGO review
             kotlinx.coroutines.delay(3.seconds)

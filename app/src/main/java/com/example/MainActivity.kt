@@ -48,8 +48,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Removed CredentialManager in favor of AccountPicker
-
         setContent {
             MyApplicationTheme {
                 val vm: MainViewModel = viewModel()
@@ -69,17 +67,18 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Registers a launcher for the AccountPicker result
                 val accountPickerLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
-                    if (result.resultCode == RESULT_OK) {
+                    if (result.resultCode == RESULT_OK) { // checks if user selected an account
+                        // Retrieves the chosen email address
                         val accountName = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
                         if (accountName != null) {
                             Log.d("MainActivity", "Account selected: $accountName")
-                            vm.loggedInDisplayName = accountName.substringBefore("@")
-                            vm.handleGoogleSignIn(accountName)
-
-                            // Initialize Drive & Sheets credential
+                            vm.loggedInDisplayName = accountName.substringBefore("@") // sets the display name from the email prefix
+                            vm.handleGoogleSignIn(accountName) // validate email and log user in
+                            // Initialize Drive & Sheets credentials
                             val driveCredential = GoogleAccountCredential.usingOAuth2(
                                 this@MainActivity,
                                 listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
@@ -92,7 +91,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Defines the action to launch the AccountPicker intent
                 val onGoogleSignInClick = {
+                    // Builds an intent that shows a list of Google accounts on the device
                     val intent = AccountPicker.newChooseAccountIntent(
                         AccountPicker.AccountChooserOptions.Builder()
                             .setAllowableAccountsTypes(listOf("com.google"))
@@ -101,7 +102,7 @@ class MainActivity : ComponentActivity() {
                     accountPickerLauncher.launch(intent)
                 }
 
-                // Map system physical back button to our custom VM backstack
+                // Overrides the back button to navigate within the app using the backstack
                 BackHandler(enabled = vm.currentScreen != Screen.SignInUp) {
                     val handled = vm.navigateBack()
                     if (!handled) {
@@ -124,7 +125,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     floatingActionButton = {
-                        //vm.currentScreen != Screen.Budget to avoid double chat buttons
+                        // vm.currentScreen != Screen.Budget to avoid double chat buttons
                         if (showBottomBar && vm.currentScreen != Screen.Budget && vm.currentScreen != Screen.SignInUp) {
                             FloatingActionButton(
                                 onClick = { vm.navigateTo(Screen.AskAi) },

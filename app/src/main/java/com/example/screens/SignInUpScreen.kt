@@ -63,7 +63,6 @@ fun SignInUpScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // TODO: Replace with R.drawable.ic_google
                 Icon(
                     imageVector = Icons.Default.Mail,
                     contentDescription = null,

@@ -39,9 +39,10 @@ fun SelectNgoScreen(
     vm: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var searchQuery by remember { mutableStateOf("") }
+    val context = LocalContext.current // needed to display toasts and start intents
+    var searchQuery by remember { mutableStateOf("") } // holds current search text
     val filteredNgos = vm.ngos.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    // case-insensitive NGO list filter
 
     Column(
         modifier = modifier
@@ -142,7 +143,7 @@ fun SelectNgoScreen(
                             fontSize = 16.sp,
                             color = PineBlue,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis // ...
                         )
                         Text(
                             text = ngo.description,
@@ -159,6 +160,7 @@ fun SelectNgoScreen(
                         IconButton(
                             onClick = {
                                 vm.activeProposalNgoId = if (vm.activeProposalNgoId == ngo.id) null else ngo.id
+                                // if opened close, else open
                             }
                         ) {
                             Icon(
@@ -179,7 +181,7 @@ fun SelectNgoScreen(
                                 onClick = {
                                     vm.activeProposalNgoId = null
                                     try {
-                                        val intent = Intent(Intent.ACTION_VIEW, ngo.website.toUri())
+                                        val intent = Intent(Intent.ACTION_VIEW, ngo.website.toUri()) // describes content of Intent
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
                                         Toast.makeText(context, "No browser available", Toast.LENGTH_SHORT).show()
@@ -227,7 +229,7 @@ fun SelectNgoScreen(
                         
                         Best regards,
                         UniFunder Student Representative
-                    """.trimIndent()
+                    """.trimIndent() // removes leading whitespace
 
                     try {
                         val intent = Intent(Intent.ACTION_SENDTO).apply {
@@ -236,7 +238,7 @@ fun SelectNgoScreen(
                             putExtra(Intent.EXTRA_SUBJECT, "Project Proposal - ${proposal.title}")
                             putExtra(Intent.EXTRA_TEXT, emailBody)
                         }
-                        context.startActivity(Intent.createChooser(intent, "Send Email"))
+                        context.startActivity(Intent.createChooser(intent, "Send Email")) // choose apps
                         vm.sendEmailProposal(proposal)
                     } catch (e: Exception) {
                         Toast.makeText(context, "No email app available", Toast.LENGTH_SHORT).show()

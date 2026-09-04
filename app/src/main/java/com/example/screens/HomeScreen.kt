@@ -109,7 +109,7 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Large screen title centered with extra bold & tracking
+        // Title
         Text(
             text = "HOME",
             fontFamily = GoogleSans,
