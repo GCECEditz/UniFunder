@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 import com.example.model.FundraisingProgress
+import org.json.JSONArray
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -39,6 +40,109 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val KEY_LOGGED_IN = "is_logged_in"
     private val KEY_EMAIL = "logged_in_email"
     private val KEY_DISPLAY_NAME = "logged_in_display_name"
+
+    private val feedPrefs =
+        application.getSharedPreferences(
+            "UniFunderFeedPrefs",
+            Context.MODE_PRIVATE
+        )
+
+    val feedItems = mutableStateListOf<String>(
+        "MATT DONATED $50",
+        "MOUNT MIRIAM CANCER HOSPITAL PROJECT PROPOSAL APPROVED"
+    )
+
+    private fun getFeedKey(): String {
+
+        val userId =
+            loggedInEmail
+                .trim()
+                .lowercase()
+
+        return if (userId.isBlank()) {
+            "feed_items_guest"
+        } else {
+            "feed_items_$userId"
+        }
+    }
+
+
+    private fun saveFeedItems() {
+
+        val jsonArray =
+            JSONArray()
+
+        feedItems.forEach { message ->
+
+            jsonArray.put(
+                message
+            )
+        }
+
+        feedPrefs.edit()
+            .putString(
+                getFeedKey(),
+                jsonArray.toString()
+            )
+            .apply()
+    }
+
+
+    private fun loadFeedItems() {
+
+        val savedFeed =
+            feedPrefs.getString(
+                getFeedKey(),
+                null
+            )
+
+        if (savedFeed.isNullOrBlank()) {
+
+            saveFeedItems()
+
+            return
+        }
+
+        try {
+
+            val jsonArray =
+                JSONArray(
+                    savedFeed
+                )
+
+            feedItems.clear()
+
+            for (
+            i in 0 until jsonArray.length()
+            ) {
+
+                feedItems.add(
+                    jsonArray.getString(i)
+                )
+            }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "FEED",
+                "Failed to load saved feed",
+                e
+            )
+        }
+    }
+
+
+    fun addFeedNotification(
+        message: String
+    ) {
+
+        feedItems.add(
+            0,
+            message
+        )
+
+        saveFeedItems()
+    }
 
     // --- Navigation Backstack ---
     private val _backStack = mutableStateListOf(Screen.SignInUp)
@@ -54,6 +158,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadLoginState()
+        loadFeedItems()
     }
 
     fun loadLoginState() {
@@ -261,8 +366,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } DONATED TO ${selectedNgo.name.uppercase()}"
 
 
-        feedItems.add(
-            0,
+        addFeedNotification(
             donationMessage
         )
 
@@ -686,13 +790,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Budgets State
 
-
-    // Feed State
-    val feedItems = mutableStateListOf<String>(
-        "MATT DONATED $50",
-        "MOUNT MIRIAM CANCER HOSPITAL PROJECT PROPOSAL APPROVED"
-    )
-
     // Social drafts
     val socialDrafts = mutableStateListOf<SocialDraft>()
 
@@ -801,6 +898,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 .putString(KEY_DISPLAY_NAME, displayName)
                 .apply()
 
+            loadFeedItems()
+
             navigateTo(Screen.Home)
         } else {
             authError = "Access denied. Please sign in with a university Google Workspace account (*.edu.my)."
@@ -876,7 +975,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             proposals[idx] = proposals[idx].copy(isSent = true)
         }
         // Add notification to Feed
-        feedItems.add(0, "PROPOSAL SENT TO ${proposal.ngoName.uppercase()}: ${proposal.title.uppercase()}")
+        addFeedNotification(
+            "PROPOSAL SENT TO ${proposal.ngoName.uppercase()}: ${proposal.title.uppercase()}"
+        )
         
         // Dynamic approval simulation for prototype fun!
         viewModelScope.launch {
@@ -885,7 +986,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val updatedIdx = proposals.indexOfFirst { it.id == proposal.id }
             if (updatedIdx != -1) {
                 proposals[updatedIdx] = proposals[updatedIdx].copy(isApproved = true)
-                feedItems.add(0, "${proposal.ngoName.uppercase()} PROJECT PROPOSAL APPROVED")
+                addFeedNotification(
+                    "${proposal.ngoName.uppercase()} PROJECT PROPOSAL APPROVED"
+                )
                 proposalsApproved++
                 ngosPartnered++
                 // Increment statistics
@@ -906,7 +1009,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         _budgets.update { budgets -> budgets + newBudget }
         //budgets.add(newBudget)
-        feedItems.add(0, "NEW BUDGET CREATED: ${name.uppercase()}")
+        addFeedNotification(
+            "NEW BUDGET CREATED: ${name.uppercase()}"
+        )
     }
 
     suspend fun deleteBudget(id: String) {
@@ -923,7 +1028,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             _budgets.update { budgets -> budgets - b}
-            feedItems.add(0, "DELETED BUDGET: ${b.name}")
+            addFeedNotification(
+                "DELETED BUDGET: ${b.name}"
+            )
         }
     }
 
@@ -941,7 +1048,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             _budgets.update {it.toMutableList().apply{ this[idx] = old.copy(name = newName.uppercase(), details = newDetails) }}
-            feedItems.add(0, "RENAMED BUDGET: ${old.name} TO ${newName.uppercase()}")
+            addFeedNotification(
+                "RENAMED BUDGET: ${old.name} TO ${newName.uppercase()}"
+            )
         }
     }
 
@@ -1041,7 +1150,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Social Media post simulation
     fun createSocialPost(platform: String, text: String) {
         socialDrafts.add(SocialDraft(platform = platform, text = text, isPosted = true))
-        feedItems.add(0, "SHARED A POST ON ${platform.uppercase()}")
+        addFeedNotification(
+            "SHARED A POST ON ${platform.uppercase()}"
+        )
         
         // Simulate a new donor from social media!
         fundsRaised += 50.0
