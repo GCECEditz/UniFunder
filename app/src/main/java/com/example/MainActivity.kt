@@ -55,16 +55,17 @@ class MainActivity : ComponentActivity() {
                 val vm: MainViewModel = viewModel()
                 val scope = rememberCoroutineScope()
 
-                // Re-initialize credential if already logged in (Only once on start)
-                LaunchedEffect(Unit) {
-                    if (vm.isLoggedIn && vm.loggedInEmail.isNotBlank() && vm.googleCredential == null) {
+                // Re-initialize credential if already logged in or when state changes
+                LaunchedEffect(vm.isLoggedIn, vm.loggedInEmail) {
+                    val email = vm.loggedInEmail.trim()
+                    if (vm.isLoggedIn && email.isNotBlank()) {
+                        Log.d("MainActivity", "Ensuring credentials for: [$email]")
                         val credential = GoogleAccountCredential.usingOAuth2(
                             this@MainActivity,
                             listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
                         )
-                        credential.selectedAccountName = vm.loggedInEmail
+                        credential.selectedAccountName = email
                         vm.googleCredential = credential
-                        Log.d("MainActivity", "Restored Google Credentials for: ${vm.loggedInEmail}")
                     }
                 }
 
