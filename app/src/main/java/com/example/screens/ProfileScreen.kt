@@ -190,7 +190,7 @@ fun ProfileScreen(
             item {
                 StatCard(
                     title = "TOTAL FUNDS RAISED",
-                    value = "$${String.format(Locale.US, "%.2f", vm.fundsRaised)}",
+                    value = "RM${String.format(Locale.US, "%.2f", vm.fundsRaised)}",
                     icon = Icons.Filled.AttachMoney
                 )
             }
