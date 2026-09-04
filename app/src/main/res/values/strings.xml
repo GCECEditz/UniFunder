@@ -5,6 +5,7 @@
     <string name="budget_screen_title">BUDGETS</string>
     <string name="budget_screen_search">Search Budgets</string>
     <string name="budget_screen_export">Export</string>
+    <string name="budget_screen_ask_ai">Ask AI</string>
     <string name="budget_screen_share">Share</string>
     <string name="budget_screen_rename">Rename</string>
     <string name="budget_screen_delete">Delete</string>

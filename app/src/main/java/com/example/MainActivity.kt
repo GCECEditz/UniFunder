@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
                     if (vm.isLoggedIn && vm.loggedInEmail.isNotBlank() && vm.googleCredential == null) {
                         val credential = GoogleAccountCredential.usingOAuth2(
                             this@MainActivity,
-                            listOf(DriveScopes.DRIVE_METADATA_READONLY)
+                            listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
                         )
                         credential.selectedAccountName = vm.loggedInEmail
                         vm.googleCredential = credential
@@ -100,10 +100,10 @@ class MainActivity : ComponentActivity() {
                                 vm.loggedInDisplayName = displayName
                                 vm.handleGoogleSignIn(email)
                                 
-                                // Initialize Drive credential
+                                // Initialize Drive & Sheets credential
                                 val driveCredential = GoogleAccountCredential.usingOAuth2(
                                     this@MainActivity,
-                                    listOf(DriveScopes.DRIVE_METADATA_READONLY)
+                                    listOf(DriveScopes.DRIVE_METADATA_READONLY, "https://www.googleapis.com/auth/spreadsheets.readonly")
                                 )
                                 driveCredential.selectedAccountName = email
                                 vm.googleCredential = driveCredential

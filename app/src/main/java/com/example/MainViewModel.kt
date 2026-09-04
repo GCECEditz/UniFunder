@@ -2,6 +2,7 @@ package com.example
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -15,6 +16,8 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
+import com.google.api.services.sheets.v4.Sheets
+import com.google.api.services.sheets.v4.model.ValueRange
 import com.example.model.ChatMessage
 import com.example.model.GoogleSheetObject
 import com.example.model.UserSheetAssociation
@@ -828,6 +831,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var rename_budget_alert_isActive = _rename_budget_alert_isActive.asStateFlow()
     var delete_budget_alert_isActive = _delete_budget_alert_isActive.asStateFlow()
 
+    private val _authIntent = MutableStateFlow<Intent?>(null)
+    val authIntent = _authIntent.asStateFlow()
+    fun onAuthIntentHandled() { _authIntent.value = null }
+
     fun onActiveBudgetDropdownIdChange(value: String?) { _activeBudgetDropdownId.value = value }
     fun onBudgetSearchQueryChange(value: String) { _budget_search_query.value = value }
     fun onBudgetNameChange(value: String) { _budget_name.value = value }
@@ -854,6 +861,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigateBack(): Boolean {
+        if (currentScreen == Screen.AskAi) {
+            resetAiPromptIfPending()
+        }
         if (_backStack.size > 1) {
             _backStack.removeAt(_backStack.lastIndex)
             return true
@@ -1089,9 +1099,90 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return pattern.find(url)?.groupValues?.get(1)
     }
 
+    private var _isPendingAiFromBudget = false
+
+    fun askAiAboutBudget(budget: Budget) {
+        val fileId = extractFileIdFromUrl(budget.sheetLink)
+        if (fileId == null) {
+            onChatTextChange("Hello UniFunder AI! I'd like feedback on my budget: ${budget.name}. Unfortunately, I couldn't extract the data from the link: ${budget.sheetLink}")
+            navigateTo(Screen.AskAi)
+            return
+        }
+
+        val credential = googleCredential
+        if (credential == null) {
+            onChatTextChange("Hello UniFunder AI! Please provide feedback on my budget '${budget.name}' details: ${budget.details}")
+            navigateTo(Screen.AskAi)
+            return
+        }
+
+        _isAiLoading.value = true
+        _isPendingAiFromBudget = true
+        navigateTo(Screen.AskAi)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val sheetsService = Sheets.Builder(
+                    NetHttpTransport(),
+                    GsonFactory.getDefaultInstance(),
+                    credential
+                ).setApplicationName("UniFunder").build()
+
+                // Fetch first few rows/cols to get an idea of the budget
+                val response: ValueRange = sheetsService.spreadsheets().values()
+                    .get(fileId, "A1:E20")
+                    .execute()
+
+                val values = response.getValues()
+                val sheetData = if (values.isNullOrEmpty()) {
+                    "No data found in sheet."
+                } else {
+                    values.joinToString("\n") { row -> row.joinToString(" | ") }
+                }
+
+                withContext(Dispatchers.Main) {
+                    onChatTextChange(
+                        "Hello UniFunder AI! Here is my budget data from '${budget.name}' (${budget.details}). Please analyze it and give me feedback:\n\n$sheetData"
+                    )
+                    _isAiLoading.value = false
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Sheets API error", e)
+                
+                if (e is com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException) {
+                    _authIntent.value = e.intent
+                    _isAiLoading.value = false
+                    return@launch
+                }
+
+                val errorMessage = when {
+                    e is com.google.api.client.googleapis.json.GoogleJsonResponseException -> {
+                        "Google API Error: ${e.details?.message ?: e.statusCode}"
+                    }
+                    else -> e.localizedMessage ?: e.message ?: e.javaClass.simpleName
+                }
+                withContext(Dispatchers.Main) {
+                    onChatTextChange(
+                        "Hello UniFunder AI! I'm linking my budget '${budget.name}' but had trouble reading the sheet directly ($errorMessage). Details: ${budget.details}. Link: ${budget.sheetLink}"
+                    )
+                    _isAiLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun resetAiPromptIfPending() {
+        if (_isPendingAiFromBudget) {
+            onChatTextChange("")
+            _isAiLoading.value = false
+            _isPendingAiFromBudget = false
+        }
+    }
+
     // AI Chat Operations
     fun sendChatMessage() {
         if (_chatText.value.isBlank()) return
+        _isPendingAiFromBudget = false // User sent it, so it's no longer pending
         val promptText = _chatText.value.trim()
 
         val userMsg = ChatMessage(

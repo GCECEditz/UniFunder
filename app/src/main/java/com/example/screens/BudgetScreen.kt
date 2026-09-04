@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.util.Log
 import android.util.Patterns
 import android.widget.Toast
@@ -76,6 +78,21 @@ fun BudgetScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val authIntent by vm.authIntent.collectAsStateWithLifecycle()
+    val authLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        // When user returns from Google permission screen, try again
+        vm.onAuthIntentHandled()
+        // Ideally, we'd trigger the AI call again automatically here
+    }
+
+    androidx.compose.runtime.LaunchedEffect(authIntent) {
+        authIntent?.let { intent ->
+            authLauncher.launch(intent)
+        }
+    }
 
     // Fetch budgets from Supabase on launch
     androidx.compose.runtime.LaunchedEffect(vm.loggedInEmail) {
@@ -486,10 +503,10 @@ fun BudgetRowItem(
                         }
                     ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.budget_screen_export)) },
+                            text = { Text(stringResource(R.string.budget_screen_ask_ai)) },
                             onClick = {
                                 vm.onActiveBudgetDropdownIdChange(null)
-                                //Toast.makeText(context, export_toast, Toast.LENGTH_LONG).show()
+                                vm.askAiAboutBudget(budget)
                             }
                         )
                         DropdownMenuItem(
