@@ -47,10 +47,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Context.MODE_PRIVATE
         )
 
-    val feedItems = mutableStateListOf<String>(
-        "MATT DONATED $50",
-        "MOUNT MIRIAM CANCER HOSPITAL PROJECT PROPOSAL APPROVED"
-    )
+    val feedItems = mutableStateListOf<String>()
 
     private fun getFeedKey(): String {
 
@@ -766,26 +763,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Proposals State
     val proposals = mutableStateListOf<Proposal>(
-        Proposal(
-            id = "prop_1",
-            ngoId = "mt_miriam",
-            ngoName = "Mount Miriam Cancer Hospital",
-            title = "TARUMT Cancer Care Awareness Drive",
-            content = "This project proposal outlines a partnership between university students and Mount Miriam Cancer Hospital to conduct cancer awareness seminars and raise MYR 500 in funding to support subsidised chemotherapy treatments for B40 patients.",
-            docsLink = "",
-            isSent = true,
-            isApproved = true
-        ),
-        Proposal(
-            id = "prop_2",
-            ngoId = "habitat",
-            ngoName = "The Habitat Foundation",
-            title = "Eco-Volunteer Rainforest Regeneration",
-            content = "Proposal for students to volunteer in conservation and build educational exhibits. Fundraising goal is set to fund soil enrichment and native seedling planting.",
-            docsLink = "",
-            isSent = false,
-            isApproved = false
-        )
+//        Proposal(
+//            id = "prop_1",
+//            ngoId = "mt_miriam",
+//            ngoName = "Mount Miriam Cancer Hospital",
+//            title = "TARUMT Cancer Care Awareness Drive",
+//            content = "This project proposal outlines a partnership between university students and Mount Miriam Cancer Hospital to conduct cancer awareness seminars and raise MYR 500 in funding to support subsidised chemotherapy treatments for B40 patients.",
+//            docsLink = "",
+//            isSent = true,
+//            isApproved = true
+//        ),
+//        Proposal(
+//            id = "prop_2",
+//            ngoId = "habitat",
+//            ngoName = "The Habitat Foundation",
+//            title = "Eco-Volunteer Rainforest Regeneration",
+//            content = "Proposal for students to volunteer in conservation and build educational exhibits. Fundraising goal is set to fund soil enrichment and native seedling planting.",
+//            docsLink = "",
+//            isSent = false,
+//            isApproved = false
+//        )
     )
 
     // Budgets State
@@ -796,24 +793,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Ask AI Chat State ---------------------------------------------------------------------------
     private val _isAiLoading = MutableStateFlow(false)
     private val _chatText = MutableStateFlow<String>("")
-    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList()
-//        ChatMessage(
-//            id = "msg_init_user",
-//            text = "HOW CAN I OPTIMIZE THIS PROJECT PROPOSAL?",
-//            isUser = true,
-//            senderName = "STEPHANIE FRANKLIN",
-//            initials = "SF",
-//            timestamp = "01:39"
-//        ),
-//        ChatMessage(
-//            id = "msg_init_ai",
-//            text = "CONSIDER QUANTIFYING YOUR IMPACT BY INCLUDING THE NUMBER OF FAMILIES ASSISTED.",
-//            isUser = false,
-//            senderName = "UniFunder AI",
-//            initials = "AI",
-//            timestamp = "01:40"
-//        )
-    )
+    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList()    )
 
     val aiChatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
     val aiChatText: StateFlow<String> = _chatText.asStateFlow()
@@ -1174,16 +1154,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun fetchGoogleSheets(): List<GoogleSheetObject>? = withContext(Dispatchers.IO) {
-        try {
-            SupabaseClient.client.postgrest["GoogleSheetObject"]
-                .select().decodeList<GoogleSheetObject>()
-        } catch (e: Exception) {
-            Log.e("MainViewModel", "Supabase fetch error", e)
-            null
-        }
-    }
-
     suspend fun updateGoogleSheet(sheet: GoogleSheetObject): Boolean = withContext(Dispatchers.IO) {
         try {
             SupabaseClient.client.postgrest["GoogleSheetObject"].update(sheet) {
@@ -1219,34 +1189,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             true
         } catch (e: Exception) {
             Log.e("MainViewModel", "Supabase association error", e)
-            false
-        }
-    }
-
-    suspend fun fetchUserAssociations(userId: String): List<UserSheetAssociation>? = withContext(Dispatchers.IO) {
-        try {
-            SupabaseClient.client.postgrest["UserSheetAssociation"]
-                .select {
-                    filter {
-                        eq("user_id", userId)
-                    }
-                }.decodeList<UserSheetAssociation>()
-        } catch (e: Exception) {
-            Log.e("MainViewModel", "Supabase fetch associations error", e)
-            null
-        }
-    }
-
-    suspend fun deleteAssociation(id: Long): Boolean = withContext(Dispatchers.IO) {
-        try {
-            SupabaseClient.client.postgrest["UserSheetAssociation"].delete {
-                filter {
-                    eq("id", id)
-                }
-            }
-            true
-        } catch (e: Exception) {
-            Log.e("MainViewModel", "Supabase delete association error", e)
             false
         }
     }

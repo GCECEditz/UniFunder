@@ -24,7 +24,7 @@ object GeminiService {
         val apiKey = try { BuildConfig.GEMINI_API_KEY
         } catch (_: Exception) { "" }
 
-        if (apiKey.isEmpty() || (apiKey == "MY_GEMINI_API_KEY")) {
+        if (apiKey.isEmpty()) {
             Log.w(TAG, "Gemini API key is not set. Using simulated response.")
             return@withContext getSimulatedResponse(prompt)
         }

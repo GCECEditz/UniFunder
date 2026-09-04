@@ -67,14 +67,14 @@ fun FeedScreen(
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
             items(vm.feedItems) { text ->
-                FeedCard(text = text)
+                FeedCard(text = text, initials = vm.userInitials)
             }
         }
     }
 }
 
 @Composable
-fun FeedCard(text: String) {
+fun FeedCard(text: String, initials: String) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -88,8 +88,8 @@ fun FeedCard(text: String) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Circle placeholder for icon initials
-            val initials = if (text.startsWith("MATT")) "M" else "NM"
-            val bgCircle = if (initials == "M") Malachite else VintageGrape
+            //val initials = if (text.startsWith("MATT")) "M" else "NM"
+            val bgCircle = VintageGrape //if (initials == "M") Malachite else VintageGrape
 
             Box(
                 contentAlignment = Alignment.Center,
