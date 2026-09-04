@@ -1,7 +1,5 @@
-
-TODO("Remember last login")
 TODO: allow user to switch between light and dark mode
 TODO: implement ai to analyze sheets
 TODO: allow ai to save messages using database
 TODO: maybe update supabase CRUD to use .from instead of postgress?
-
+TODO: handle AI messages when there is no Internet (maybe not?)

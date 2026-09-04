@@ -1,11 +1,13 @@
 package com.example
 
+import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -30,25 +32,17 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 import com.example.model.FundraisingProgress
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences("UniFunderPrefs", Context.MODE_PRIVATE)
+
+    private val KEY_LOGGED_IN = "is_logged_in"
+    private val KEY_EMAIL = "logged_in_email"
+    private val KEY_DISPLAY_NAME = "logged_in_display_name"
 
     // --- Navigation Backstack ---
     private val _backStack = mutableStateListOf(Screen.SignInUp)
     val currentScreen: Screen get() = _backStack.lastOrNull() ?: Screen.SignInUp
-
-    fun navigateTo(screen: Screen) {
-        if (_backStack.lastOrNull() != screen) {
-            _backStack.add(screen)
-        }
-    }
-
-    fun navigateBack(): Boolean {
-        if (_backStack.size > 1) {
-            _backStack.removeAt(_backStack.lastIndex)
-            return true
-        }
-        return false
-    }
 
     // --- Auth State ---
     var isLoggedIn by mutableStateOf(value = false)
@@ -57,6 +51,21 @@ class MainViewModel : ViewModel() {
     var authError by mutableStateOf<String?>(null)
     var googleAccount by mutableStateOf<GoogleSignInAccount?>(null)
     var googleCredential by mutableStateOf<GoogleAccountCredential?>(null)
+
+    init {
+        loadLoginState()
+    }
+
+    fun loadLoginState() {
+        isLoggedIn = prefs.getBoolean(KEY_LOGGED_IN, false)
+        loggedInEmail = prefs.getString(KEY_EMAIL, "") ?: ""
+        loggedInDisplayName = prefs.getString(KEY_DISPLAY_NAME, "") ?: ""
+
+        if (isLoggedIn) {
+            _backStack.clear()
+            _backStack.add(Screen.Home)
+        }
+    }
 
     val userInitials: String
         get() = if (loggedInDisplayName.isNotBlank()) {
@@ -617,13 +626,36 @@ class MainViewModel : ViewModel() {
 
     // --- Actions ---
 
+    fun navigateTo(screen: Screen) {
+        if (_backStack.lastOrNull() != screen) {
+            _backStack.add(screen)
+        }
+    }
+
+    fun navigateBack(): Boolean {
+        if (_backStack.size > 1) {
+            _backStack.removeAt(_backStack.lastIndex)
+            return true
+        }
+        return false
+    }
+
 
     fun handleGoogleSignIn(email: String, account: GoogleSignInAccount? = null) {
         authError = null
         if (email.endsWith(".edu.my", ignoreCase = true)) {
+            val displayName = account?.displayName ?: email.substringBefore("@")
             loggedInEmail = email
+            loggedInDisplayName = displayName
             googleAccount = account
             isLoggedIn = true
+
+            prefs.edit()
+                .putBoolean(KEY_LOGGED_IN, true)
+                .putString(KEY_EMAIL, email)
+                .putString(KEY_DISPLAY_NAME, displayName)
+                .apply()
+
             navigateTo(Screen.Home)
         } else {
             authError = "Access denied. Please sign in with a university Google Workspace account (*.edu.my)."
@@ -641,6 +673,9 @@ class MainViewModel : ViewModel() {
         loggedInDisplayName = ""
         authError = null
         proposalDocsLink = ""
+
+        prefs.edit().clear().apply()
+
         _backStack.clear()
         _backStack.add(Screen.SignInUp)
     }

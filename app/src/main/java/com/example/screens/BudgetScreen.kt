@@ -54,7 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,7 +95,6 @@ fun BudgetScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
-            .testTag("budget_screen")
     ) {
         // Header
         Row(
@@ -144,7 +142,6 @@ fun BudgetScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 10.dp)
-                .testTag("budget_search_bar")
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -176,7 +173,6 @@ fun BudgetScreen(
                 modifier = Modifier
                     .size(54.dp)
                     .border(1.dp, LilacAsh, CircleShape)
-                    .testTag("ai_nav_circle_button")
             ) {
                 Icon(
                     imageVector = Icons.Filled.ChatBubble,
@@ -195,7 +191,6 @@ fun BudgetScreen(
                     modifier = Modifier
                         .size(54.dp)
                         .border(1.dp, LilacAsh, CircleShape)
-                        .testTag("budget_add_options_button")
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
@@ -205,7 +200,6 @@ fun BudgetScreen(
                     )
                 }
 
-                val add_link_toast = stringResource(R.string.budget_screen_add_link_toast)
                 DropdownMenu(
                     expanded = showCreateMenu,
                     onDismissRequest = { showCreateMenu = false }
@@ -475,8 +469,7 @@ fun BudgetRowItem(
                         onClick = {
                             vm.onSelectedBudgetChange(null)
                             vm.onActiveBudgetDropdownIdChange(if (activeBudgetDropdownId == budget.id) null else budget.id)
-                        },
-                        modifier = Modifier.testTag("action_budget_${budget.id}")
+                        }
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Add,
@@ -484,8 +477,6 @@ fun BudgetRowItem(
                             tint = PineBlue
                         )
                     }
-
-                    val export_toast = stringResource(R.string.budget_screen_export_toast, budget.name)
 
                     DropdownMenu(
                         expanded = activeBudgetDropdownId == budget.id,
@@ -498,7 +489,7 @@ fun BudgetRowItem(
                             text = { Text(stringResource(R.string.budget_screen_export)) },
                             onClick = {
                                 vm.onActiveBudgetDropdownIdChange(null)
-                                Toast.makeText(context, export_toast, Toast.LENGTH_LONG).show()
+                                //Toast.makeText(context, export_toast, Toast.LENGTH_LONG).show()
                             }
                         )
                         DropdownMenuItem(

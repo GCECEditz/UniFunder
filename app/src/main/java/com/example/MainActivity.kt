@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.LaunchedEffect
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -26,7 +27,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -58,6 +58,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val vm: MainViewModel = viewModel()
+
+                // Re-initialize credential if already logged in (Only once on start)
+                LaunchedEffect(Unit) {
+                    if (vm.isLoggedIn && vm.loggedInEmail.isNotBlank() && vm.googleCredential == null) {
+                        val credential = GoogleAccountCredential.usingOAuth2(
+                            this@MainActivity,
+                            listOf(DriveScopes.DRIVE_METADATA_READONLY)
+                        )
+                        credential.selectedAccountName = vm.loggedInEmail
+                        vm.googleCredential = credential
+                    }
+                }
 
                 val launcher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
@@ -120,7 +132,6 @@ class MainActivity : ComponentActivity() {
                                 shape = CircleShape,
                                 modifier = Modifier
                                     .padding(bottom = 12.dp, end = 8.dp)
-                                    .testTag("floating_ask_ai_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.ChatBubble,
